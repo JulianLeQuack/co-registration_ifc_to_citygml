@@ -4,7 +4,6 @@ import numpy as np
 import xml.etree.ElementTree as ET
 
 from shapely.geometry import MultiPoint
-from shapely import concave_hull
 from shapely.ops import substring
 
 
@@ -52,7 +51,7 @@ def create_CityGML_footprint(path_to_CityGML):
 
 if __name__ == "__main__":
     ground_surface_convex_hull_densified = create_CityGML_footprint("./test_data/citygml/DEBY_LOD2_4959457.gml")
-    plt.figure(figsize=(8, 8))
+    plt.figure()
     x = [p.x for p in ground_surface_convex_hull_densified.geoms]
     y = [p.y for p in ground_surface_convex_hull_densified.geoms]
     plt.scatter(x, y)
