@@ -52,11 +52,12 @@ def create_CityGML_footprint(path_to_CityGML):
 
     return result
 
+
 if __name__ == "__main__":
     ground_surface_convex_hull_densified = create_CityGML_footprint("./test_data/citygml/DEBY_LOD2_4959457.gml")
     plt.figure()
-    x = [p.x for p in ground_surface_convex_hull_densified.geoms]
-    y = [p.y for p in ground_surface_convex_hull_densified.geoms]
+    x = ground_surface_convex_hull_densified[:, 0]
+    y = ground_surface_convex_hull_densified[:, 1]
     plt.scatter(x, y)
     plt.grid(True)
     plt.show()

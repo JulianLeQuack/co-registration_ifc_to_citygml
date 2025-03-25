@@ -51,11 +51,12 @@ def create_DXF_footprint(path_to_DXF):
 
     return result
 
+
 if __name__ == "__main__":
     footprint_convex_hull_densified = create_DXF_footprint("./test_data/dxf/01-05-0501_EG.dxf")
     plt.figure()
-    x = [p.x for p in footprint_convex_hull_densified.geoms]
-    y = [p.y for p in footprint_convex_hull_densified.geoms]
+    x = footprint_convex_hull_densified[:, 0]
+    y = footprint_convex_hull_densified[:, 1]
     plt.scatter(x, y)
     plt.grid(True)
     plt.show()

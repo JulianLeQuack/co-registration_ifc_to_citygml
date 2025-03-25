@@ -61,8 +61,8 @@ def create_IFC_footprint(path_to_IFC):
 if __name__ == "__main__":
     footprint_convex_hull_densified = create_IFC_footprint("./test_data/ifc/3.002 01-05-0501_EG.ifc")
     plt.figure()
-    x = [p.x for p in footprint_convex_hull_densified.geoms]
-    y = [p.y for p in footprint_convex_hull_densified.geoms]
+    x = footprint_convex_hull_densified[:, 0]
+    y = footprint_convex_hull_densified[:, 1]
     plt.scatter(x, y)
     plt.grid(True)
-    plt.show()  
+    plt.show()
