@@ -46,7 +46,10 @@ def create_DXF_footprint(path_to_DXF):
         s = substring(footprint_convex_hull, i, i+0.2)
         footprint_convex_hull_densified = footprint_convex_hull_densified.union(s.boundary)
 
-    return footprint_convex_hull_densified
+    #Create np array from Multipoint object
+    result = np.array([(point.x,point.y) for point in footprint_convex_hull_densified.geoms])
+
+    return result
 
 if __name__ == "__main__":
     footprint_convex_hull_densified = create_DXF_footprint("./test_data/dxf/01-05-0501_EG.dxf")

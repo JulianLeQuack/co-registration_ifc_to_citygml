@@ -52,7 +52,10 @@ def create_IFC_footprint(path_to_IFC):
         s = substring(footprint_convex_hull, i, i+0.2)
         footprint_convex_hull_densified = footprint_convex_hull_densified.union(s.boundary)
 
-    return footprint_convex_hull_densified
+    #Create np array from Multipoint object
+    result = np.array([(point.x,point.y) for point in footprint_convex_hull_densified.geoms])
+
+    return result
     
 
 if __name__ == "__main__":

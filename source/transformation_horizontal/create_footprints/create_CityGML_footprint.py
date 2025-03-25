@@ -47,7 +47,10 @@ def create_CityGML_footprint(path_to_CityGML):
         s = substring(ground_surface_convex_hull, i, i+0.2)
         ground_surface_convex_hull_densified = ground_surface_convex_hull_densified.union(s.boundary)
 
-    return ground_surface_convex_hull_densified
+    #Create np array from Multipoint object
+    result = np.array([(point.x,point.y) for point in ground_surface_convex_hull_densified.geoms])
+
+    return result
 
 if __name__ == "__main__":
     ground_surface_convex_hull_densified = create_CityGML_footprint("./test_data/citygml/DEBY_LOD2_4959457.gml")

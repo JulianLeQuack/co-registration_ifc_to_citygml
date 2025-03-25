@@ -5,6 +5,9 @@ from scipy.spatial import KDTree
 from scipy.optimize import least_squares
 
 from .rigid_transformation import Rigid_Transformation
+from .create_footprints.create_CityGML_footprint import create_CityGML_footprint
+from .create_footprints.create_DXF_footprint import create_DXF_footprint
+from .create_footprints.create_IFC_footprint import create_IFC_footprint
 
 
 def compute_transformation(source_pair, target_pair):
@@ -115,14 +118,21 @@ def refine_registration(source_points, target_points, initial_transformation: Ri
 
 
 if __name__ == "__main__":
-    source_path = "./test_data/points/floorplan-vertices-automatic-simple-CONVEX.txt"
-    target_path = "./test_data/points/footprint-vertices-automatic-simple-CONVEX.txt"
-    source = np.genfromtxt(source_path, dtype=np.double, delimiter=",", encoding="utf-8-sig")
-    target = np.genfromtxt(target_path, dtype=np.double, delimiter=",", encoding="utf-8-sig")
+    # source_path = "./test_data/points/floorplan-vertices-automatic-simple-CONVEX.txt"
+    # target_path = "./test_data/points/footprint-vertices-automatic-simple-CONVEX.txt"
+    # source = np.genfromtxt(source_path, dtype=np.double, delimiter=",", encoding="utf-8-sig")
+    # target = np.genfromtxt(target_path, dtype=np.double, delimiter=",", encoding="utf-8-sig")
 
-    rough_transformation, inliers = ransac_registration(source, target, iterations=50000, threshold=0.03) #1
+    ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
+    floorplan_path = "./test_data/dxf/01-05-0501_EG.dxf"
+    citygml_path = "./test_data/citygml/DEBY_LOD2_4959457.gml"
+
+    source = create_IFC_footprint(ifc_path)
+    target = create_CityGML_footprint(citygml_path)
+
+    rough_transformation, inliers = ransac_registration(source, target, iterations=50000, threshold=0.03)
     print(rough_transformation)
-    refined_transformation = refine_registration(source, target, rough_transformation, max_iterations=100, distance_threshold=10)
+    refined_transformation = refine_registration(source, target, rough_transformation, max_iterations=100, distance_threshold=5)
     print(refined_transformation)
 
     roughly_transformed_source = rough_transformation.apply_transformation(points=source)
