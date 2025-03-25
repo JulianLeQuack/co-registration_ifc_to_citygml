@@ -4,6 +4,8 @@ import numpy as np
 from scipy.spatial import KDTree
 from scipy.optimize import least_squares
 
+from .rigid_transformation import Rigid_Transformation
+
 
 def compute_transformation(source_pair, target_pair):
     """
@@ -11,6 +13,7 @@ def compute_transformation(source_pair, target_pair):
     source_pair (2x2 array) to target_pair (2x2 array) using the fact that the 
     rotation angle can be computed from the direction of the vectors.
     """
+
     source_vector = source_pair[1] - source_pair[0]
     target_vector = target_pair[1] - target_pair[0]
     
@@ -28,17 +31,8 @@ def compute_transformation(source_pair, target_pair):
                   [np.sin(theta),  np.cos(theta)]])
     # Compute translation so that the first source point aligns with the first target point
     translation = target_pair[0] - R @ source_pair[0]
-    return theta, translation
-
-
-def apply_transformation(params, points):
-    """
-    Applies a 2D rigid transformation given by params=(theta, t) to a set of points.
-    """
-    theta, translation = params[0], params[1]
-    R = np.array([[np.cos(theta), -np.sin(theta)],
-                  [np.sin(theta),  np.cos(theta)]])
-    return (R @ points.T).T + translation
+    rigid_transformation = Rigid_Transformation(translation[0], translation[1], theta)
+    return rigid_transformation
 
 
 def ransac_registration(source_points, target_points, iterations=1000, threshold=0.2):
@@ -51,7 +45,7 @@ def ransac_registration(source_points, target_points, iterations=1000, threshold
     - Return the best transformation parameters and inlier count.
     """
     best_inliers = 0
-    best_params = None
+    best_transformation = Rigid_Transformation()
     tree = KDTree(target_points)
     n_source = len(source_points)
     n_target = len(target_points)
@@ -65,11 +59,10 @@ def ransac_registration(source_points, target_points, iterations=1000, threshold
         source_pair = source_points[source_indices]
         target_pair = target_points[target_indices]
         
-        candidate = compute_transformation(source_pair, target_pair)
-        if candidate is None:
+        candidate_transformation = compute_transformation(source_pair, target_pair)
+        if candidate_transformation is None:
             continue
-        theta, translation = candidate
-        transformed = apply_transformation((theta, translation), source_points)
+        transformed = candidate_transformation.apply_transformation(points=source_points)
         
         # For each transformed source point, find the distance to the nearest target point
         distances, _ = tree.query(transformed)
@@ -77,29 +70,27 @@ def ransac_registration(source_points, target_points, iterations=1000, threshold
         
         if inliers > best_inliers:
             best_inliers = inliers
-            best_params = (theta, translation)
+            best_transformation = candidate_transformation
     
-    return best_params, best_inliers
+    return best_transformation, best_inliers
 
 
 def icp_residuals(params, source_points, target_points, nn_indices):
+    rigid_transformation = Rigid_Transformation(params[0], params[1], params[2])
     # Transform source points using params to find residuals between transformed source and target
-    theta = params[0]
-    translation = params[1:3]
-    R = np.array([[np.cos(theta), -np.sin(theta)],
-                  [np.sin(theta),  np.cos(theta)]])
-    transformed_source = (R @ source_points.T).T + translation
+    transformed_source = rigid_transformation.apply_transformation(source_points)
     # Compute residuals between transformed source points and their current nearest neighbors
     return (transformed_source - target_points[nn_indices]).ravel()
 
 
-def refine_registration(source_points, target_points, initial_params, max_iterations=100, distance_threshold=10):
+def refine_registration(source_points, target_points, initial_transformation: Rigid_Transformation, max_iterations=100, distance_threshold=10):
     # Extract params from imput params
-    params = np.array([initial_params[0], initial_params[1][0], initial_params[1][1]])
+    current_transformation = initial_transformation
+    params = np.array([initial_transformation.x, initial_transformation.y, initial_transformation.theta])
     target_tree = KDTree(target_points)
 
     for _ in range(max_iterations):
-        transformed_source = apply_transformation((params[0], params[1:3]), source_points)
+        transformed_source = current_transformation.apply_transformation(points=source_points)
         distances, nn_indices = target_tree.query(transformed_source)
         
         valid_mask = distances < distance_threshold
@@ -118,8 +109,9 @@ def refine_registration(source_points, target_points, initial_params, max_iterat
             loss='huber'
         )
         params = res.x
+        current_transformation = Rigid_Transformation(params[0], params[1], params[2])
     
-    return params
+    return current_transformation
 
 
 if __name__ == "__main__":
@@ -129,17 +121,18 @@ if __name__ == "__main__":
     target = np.genfromtxt(target_path, dtype=np.double, delimiter=",", encoding="utf-8-sig")
 
     rough_transformation, inliers = ransac_registration(source, target, iterations=50000, threshold=0.03) #1
-    print(rough_transformation[0], rough_transformation[1][0], rough_transformation[1][1])
+    print(rough_transformation)
     refined_transformation = refine_registration(source, target, rough_transformation, max_iterations=100, distance_threshold=10)
-    print(refined_transformation[0], refined_transformation[1:3])
+    print(refined_transformation)
 
-    roughly_transformed_source = apply_transformation(rough_transformation, source)
-    refined_transformed_source = apply_transformation(refined_transformation, source)
+    roughly_transformed_source = rough_transformation.apply_transformation(points=source)
+    refined_transformed_source = refined_transformation.apply_transformation(points=source)
 
-    plt.figure()
+    plt.figure(figsize=(10,10))
     plt.scatter(source[:, 0], source[:, 1], color='green', label='Source Points', s=10)
     plt.scatter(target[:, 0], target[:, 1], label="Target Points", color="blue", s=10)
-    plt.scatter(roughly_transformed_source[:, 0], roughly_transformed_source[:, 1], color="orange", marker="x", s=10)
-    plt.scatter(refined_transformed_source[:, 0], refined_transformed_source[:, 1], color="red", marker="x", s=10)
+    plt.scatter(roughly_transformed_source[:, 0], roughly_transformed_source[:, 1], color="orange", marker="x", s=10, label="Rough Registration")
+    plt.scatter(refined_transformed_source[:, 0], refined_transformed_source[:, 1], color="red", marker="x", s=10, label="Refined Registration")
+    plt.legend()
     plt.grid(True)
     plt.show()
