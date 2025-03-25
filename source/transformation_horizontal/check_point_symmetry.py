@@ -3,12 +3,16 @@ import matplotlib.pyplot as plt
 from scipy.spatial import cKDTree
 
 def check_point_symmetry(points: np.array, tolerance=1e-6):
+
+    # Get Centroid of Points as "Mirroring Point"
     centroid = np.mean(points, axis=0)
     reflected_points = 2 * centroid - points
 
+    # Find nearest neighbors to check is projected point lands on point-symmetric other point within a threshhold
     tree = cKDTree(points)
     distances, _ = tree.query(reflected_points, k=1)
 
+    # return True if points create a point-symmetric shape
     return np.all(distances < tolerance)
 
 if __name__ == "__main__":
