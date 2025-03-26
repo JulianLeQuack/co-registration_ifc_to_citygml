@@ -5,8 +5,9 @@ import ifcopenshell.util.shape
 import numpy as np
 import matplotlib.pyplot as plt
 
-from shapely.geometry import MultiPoint
-from shapely.ops import substring
+from shapely.geometry import LineString, Polygon, MultiLineString
+from shapely.ops import substring, unary_union
+
 
 def create_IFC_footprint(path_to_IFC):
 
@@ -41,28 +42,14 @@ def create_IFC_footprint(path_to_IFC):
         print("No footprint points extracted from the IFC file.")
         return
 
-    # Create shapely multipoint for further processing
-    footprint_points = MultiPoint(points)
-    # Create convex hull around footprint points
-    footprint_convex_hull = footprint_points.convex_hull.boundary
-
-    # Sample points along the convex hull for transformation estimation
-    footprint_convex_hull_densified = MultiPoint()
-    for i in np.arange(0, footprint_convex_hull.length, 0.2):
-        s = substring(footprint_convex_hull, i, i+0.2)
-        footprint_convex_hull_densified = footprint_convex_hull_densified.union(s.boundary)
-
-    #Create np array from Multipoint object
-    result = np.array([(point.x,point.y) for point in footprint_convex_hull_densified.geoms])
-
-    return result
+    return np.array(points)
     
 
 if __name__ == "__main__":
-    footprint_convex_hull_densified = create_IFC_footprint("./test_data/ifc/3.002 01-05-0501_EG.ifc")
-    plt.figure()
-    x = footprint_convex_hull_densified[:, 0]
-    y = footprint_convex_hull_densified[:, 1]
+    footprint = create_IFC_footprint("./test_data/ifc/3.002 01-05-0501_EG.ifc")
+    plt.figure(figsize=(15,10))
+    x = footprint[:, 0]
+    y = footprint[:, 1]
     plt.scatter(x, y)
     plt.grid(True)
     plt.show()

@@ -37,26 +37,14 @@ def create_DXF_footprint(path_to_DXF):
     if not points:
         raise ValueError("No ground surface points found in the DXF file.")
 
-    footprint_points = MultiPoint(points)
-    footprint_convex_hull = footprint_points.convex_hull.boundary
-
-    # Sample many points along the boundary for alignment
-    footprint_convex_hull_densified = MultiPoint()
-    for i in np.arange(0, footprint_convex_hull.length, 0.2):
-        s = substring(footprint_convex_hull, i, i+0.2)
-        footprint_convex_hull_densified = footprint_convex_hull_densified.union(s.boundary)
-
-    #Create np array from Multipoint object
-    result = np.array([(point.x,point.y) for point in footprint_convex_hull_densified.geoms])
-
-    return result
+    return np.array(points)
 
 
 if __name__ == "__main__":
-    footprint_convex_hull_densified = create_DXF_footprint("./test_data/dxf/01-05-0501_EG.dxf")
-    plt.figure()
-    x = footprint_convex_hull_densified[:, 0]
-    y = footprint_convex_hull_densified[:, 1]
+    footprint = create_DXF_footprint("./test_data/dxf/01-05-0501_EG.dxf")
+    plt.figure(figsize=(15,10))
+    x = footprint[:, 0]
+    y = footprint[:, 1]
     plt.scatter(x, y)
     plt.grid(True)
     plt.show()

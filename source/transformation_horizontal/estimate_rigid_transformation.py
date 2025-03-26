@@ -118,6 +118,8 @@ def refine_registration(source_points, target_points, initial_transformation: Ri
 
 
 if __name__ == "__main__":
+
+    from .create_footprints.create_hull import create_concave_hull, create_convex_hull
     # source_path = "./test_data/points/floorplan-vertices-automatic-simple-CONVEX.txt"
     # target_path = "./test_data/points/footprint-vertices-automatic-simple-CONVEX.txt"
     # source = np.genfromtxt(source_path, dtype=np.double, delimiter=",", encoding="utf-8-sig")
@@ -127,7 +129,7 @@ if __name__ == "__main__":
     floorplan_path = "./test_data/dxf/01-05-0501_EG.dxf"
     citygml_path = "./test_data/citygml/DEBY_LOD2_4959457.gml"
 
-    source = create_IFC_footprint(ifc_path)
+    source = create_concave_hull(create_IFC_footprint(ifc_path), 0.1)
     target = create_CityGML_footprint(citygml_path)
 
     rough_transformation, inliers = ransac_registration(source, target, iterations=50000, threshold=0.03)
@@ -138,11 +140,27 @@ if __name__ == "__main__":
     roughly_transformed_source = rough_transformation.apply_transformation(points=source)
     refined_transformed_source = refined_transformation.apply_transformation(points=source)
 
-    plt.figure(figsize=(10,10))
+    plt.figure(figsize=(18, 6))
+
+    plt.subplot(1, 3, 1)
     plt.scatter(source[:, 0], source[:, 1], color='green', label='Source Points', s=10)
+    plt.title("IFC Input")
+    plt.grid(True)
+    plt.legend()
+
+    plt.subplot(1, 3, 2)
+    plt.scatter(target[:, 0], target[:, 1], label="Target Points", color="blue", s=10)
+    plt.title("CityGML Input")
+    plt.grid(True)
+    plt.legend()
+
+    plt.subplot(1, 3, 3)
     plt.scatter(target[:, 0], target[:, 1], label="Target Points", color="blue", s=10)
     plt.scatter(roughly_transformed_source[:, 0], roughly_transformed_source[:, 1], color="orange", marker="x", s=10, label="Rough Registration")
     plt.scatter(refined_transformed_source[:, 0], refined_transformed_source[:, 1], color="red", marker="x", s=10, label="Refined Registration")
+    plt.title("Result")
     plt.legend()
     plt.grid(True)
+
+    plt.tight_layout()
     plt.show()

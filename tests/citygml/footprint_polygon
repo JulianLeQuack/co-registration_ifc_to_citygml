@@ -1,0 +1,68 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
+import xml.etree.ElementTree as ET
+
+from shapely.geometry import Polygon
+
+def create_CityGML_footprint_polygon(path_to_CityGML):
+    """
+    Extracts the ground surface polygon from a CityGML file.
+
+    Args:
+        path_to_CityGML (str): Path to the CityGML file.
+
+    Returns:
+        shapely.geometry.Polygon or None: The ground surface polygon, or None if extraction fails.
+    """
+
+    try:
+        # Parse the CityGML file
+        tree = ET.parse(path_to_CityGML)
+        root = tree.getroot()
+
+        # Define namespaces
+        ns = {
+            'bldg': 'http://www.opengis.net/citygml/building/2.0',
+            'gml': 'http://www.opengis.net/gml'
+        }
+
+        # Find the first ground surface in the CityGML file
+        gs = root.find('.//bldg:GroundSurface', ns)
+        if gs is None:
+            return None  # No ground surface found
+
+        # Locate the posList that contains the coordinates
+        posList = gs.find('.//gml:posList', ns)
+        if posList is None:
+            return None  # No posList found
+
+        # Assume coordinates are space separated
+        coords = list(map(float, posList.text.split()))
+
+        # Extract x and y coordinates for the polygon
+        points = [(coords[i], coords[i + 1]) for i in range(0, len(coords), 3)]
+
+        # Create a Shapely Polygon
+        polygon = Polygon(points)
+        return polygon
+
+    except ET.ParseError:
+        print(f"Error parsing CityGML file: {path_to_CityGML}")
+        return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+    
+
+if __name__ == "__main__":
+    polygon = create_CityGML_footprint_polygon("./test_data/citygml/DEBY_LOD2_4959457.gml")
+    if polygon:
+        print(f"Polygon: {polygon.wkt}") #print the polygon in well known text format.
+        x, y = polygon.exterior.xy
+        import matplotlib.pyplot as plt
+        plt.plot(x,y)
+        plt.show()
+
+    else:
+        print("Could not extract polygon.")
