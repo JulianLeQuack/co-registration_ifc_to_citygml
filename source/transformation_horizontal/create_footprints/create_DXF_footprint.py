@@ -3,11 +3,8 @@ import numpy as np
 
 import ezdxf
 
-from shapely.geometry import MultiPoint
-from shapely.ops import substring
 
-
-def create_DXF_footprint(path_to_DXF):
+def create_DXF_footprint(path_to_DXF, wall_layer_name: str):
 
     points = []
 
@@ -16,8 +13,7 @@ def create_DXF_footprint(path_to_DXF):
     msp = file.modelspace()
 
     # Query CAD Objects in layer "A_01_TRAGWAND"
-    wall_layer_name = "A_01_TRAGWAND"
-    wall_entities = msp.query('*[layer=="A_01_TRAGWAND"]')
+    wall_entities = msp.query(f'*[layer=="{wall_layer_name}"]')
 
     # Iterate over all entites in layer
     for entity in wall_entities:
@@ -41,7 +37,7 @@ def create_DXF_footprint(path_to_DXF):
 
 
 if __name__ == "__main__":
-    footprint = create_DXF_footprint("./test_data/dxf/01-05-0501_EG.dxf")
+    footprint = create_DXF_footprint("./test_data/dxf/01-05-0501_EG.dxf", "A_01_TRAGWAND")
     plt.figure(figsize=(15,10))
     x = footprint[:, 0]
     y = footprint[:, 1]
