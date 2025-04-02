@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import random
-import itertools
 
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import *
 from source.transformation_horizontal.create_footprints.create_IFC_footprint import *
@@ -70,7 +69,7 @@ def apply_transform(points, R, t):
     """
     return (R @ points.T).T + t
 
-def ransac_rigid_transform(features1, features2, distance_tol=5.0, angle_tol_deg=10.0):
+def ransac_rigid_transform(features1, features2, iterations=1000, distance_tol=5.0, angle_tol_deg=10.0):
     """
     Use RANSAC to estimate the best rigid transformation that aligns features1 to features2.
     
@@ -95,7 +94,11 @@ def ransac_rigid_transform(features1, features2, distance_tol=5.0, angle_tol_deg
         print("Not enough features for RANSAC.")
         return None, None, []
     
-    for f1_1, f1_2 in itertools.combinations(features1, 2):
+    for i in range(iterations):
+        # Randomly pick two features from polygon1.
+        sample_indices = random.sample(range(len(features1)), 2)
+        f1_1 = features1[sample_indices[0]]
+        f1_2 = features1[sample_indices[1]]
         p1, p2 = f1_1[1], f1_2[1]
         a1, a2 = np.radians(f1_1[2]), np.radians(f1_2[2])
         
@@ -106,9 +109,11 @@ def ransac_rigid_transform(features1, features2, distance_tol=5.0, angle_tol_deg
         if not candidates1 or not candidates2:
             continue
         
-    for f2_1, f2_2 in itertools.combinations(features2, 2):
+        # Randomly choose one candidate for each.
+        f2_1 = random.choice(candidates1)
+        f2_2 = random.choice(candidates2)
         q1, q2 = f2_1[1], f2_2[1]
-            
+        
         # Avoid degenerate cases.
         if np.linalg.norm(p2 - p1) < 1e-3 or np.linalg.norm(q2 - q1) < 1e-3:
             continue
@@ -154,8 +159,8 @@ def main():
 
 
     # Detect features (corners) using the turning function.
-    features1 = detect_features(polygon1, angle_threshold_deg=30)
-    features2 = detect_features(polygon2, angle_threshold_deg=30)
+    features1 = detect_features(polygon1, angle_threshold_deg=70)
+    features2 = detect_features(polygon2, angle_threshold_deg=70)
 
     print(f"Polygon1: {len(features1)} features")
     print(f"Polygon2: {len(features2)} features")
@@ -169,8 +174,9 @@ def main():
     
     # Use RANSAC to find the best rigid transformation aligning polygon1's features to polygon2's features.
     R, t, inliers = ransac_rigid_transform(features1, features2,
-                                             distance_tol=5,
-                                             angle_tol_deg=15)
+                                             iterations=len(features1) * len(features2),
+                                             distance_tol=10,
+                                             angle_tol_deg=30)
     
     if R is None:
         print("RANSAC failed to find a valid transformation.")

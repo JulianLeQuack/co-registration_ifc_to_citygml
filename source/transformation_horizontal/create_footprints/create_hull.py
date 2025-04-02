@@ -28,45 +28,49 @@ def create_concave_hull(points: np.array, alpha: float=0.2):
     Creates a concave hull from a set of points, handling MultiLineString results.
     """
     footprint_points = points
-    footprint_alphashape = alphashape(footprint_points, alpha).boundary
+    footprint_alphashape = alphashape(footprint_points, alpha)
 
-    densified_lines = []  # Store densified LineStrings
+    footprint = footprint_alphashape.exterior.coords
 
-    if isinstance(footprint_alphashape, LineString):
-        # Handle LineString directly
-        for i in np.arange(0, footprint_alphashape.length, 0.2):
-            s = substring(footprint_alphashape, i, i + 0.2)
-            densified_lines.append(s)
+    # densified_lines = []  # Store densified LineStrings
 
-    elif isinstance(footprint_alphashape, MultiLineString):
-        # Handle MultiLineString by iterating through components
-        for line in footprint_alphashape.geoms:
-            for i in np.arange(0, line.length, 0.2):
-                s = substring(line, i, i + 0.2)
-                densified_lines.append(s)
-    elif footprint_alphashape.is_empty:
-        return np.array([]) #Return empty array if alphashape is empty.
-    else:
-        # Handle other geometry types (if necessary)
-        return np.array([])  # Return empty array or handle as needed
+    # if isinstance(footprint_alphashape, LineString):
+    #     # Handle LineString directly
+    #     for i in np.arange(0, footprint_alphashape.length, 0.2):
+    #         s = substring(footprint_alphashape, i, i + 0.2)
+    #         densified_lines.append(s)
 
-    # Combine densified LineStrings
-    if densified_lines:
-        densified_multiline = unary_union(densified_lines)
-        if isinstance(densified_multiline, LineString):
-            points_list = [(x,y) for x,y in densified_multiline.coords]
-            return np.array(points_list)
-        elif isinstance(densified_multiline, MultiLineString):
-            points_list = []
-            for line in densified_multiline.geoms:
-                points_list.extend([(x,y) for x,y in line.coords])
-            return np.array(points_list)
+    # elif isinstance(footprint_alphashape, MultiLineString):
+    #     # Handle MultiLineString by iterating through components
+    #     for line in footprint_alphashape.geoms:
+    #         for i in np.arange(0, line.length, 0.2):
+    #             s = substring(line, i, i + 0.2)
+    #             densified_lines.append(s)
+    # elif footprint_alphashape.is_empty:
+    #     return np.array([]) #Return empty array if alphashape is empty.
+    # else:
+    #     # Handle other geometry types (if necessary)
+    #     return np.array([])  # Return empty array or handle as needed
 
-        else:
-            return np.array([])#return empty array if unary_union fails.
+    # # Combine densified LineStrings
+    # if densified_lines:
+    #     densified_multiline = unary_union(densified_lines)
+    #     if isinstance(densified_multiline, LineString):
+    #         points_list = [(x,y) for x,y in densified_multiline.coords]
+    #         return np.array(points_list)
+    #     elif isinstance(densified_multiline, MultiLineString):
+    #         points_list = []
+    #         for line in densified_multiline.geoms:
+    #             points_list.extend([(x,y) for x,y in line.coords])
+    #         return np.array(points_list)
 
-    else:
-        return np.array([])  # Return empty array if no densified lines
+    #     else:
+    #         return np.array([])#return empty array if unary_union fails.
+
+    # else:
+    #     return np.array([])  # Return empty array if no densified lines
+
+    return np.array(footprint)
 
 
 if __name__ == "__main__":

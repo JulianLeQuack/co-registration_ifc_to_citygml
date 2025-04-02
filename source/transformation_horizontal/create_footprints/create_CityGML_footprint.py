@@ -36,20 +36,20 @@ def create_CityGML_footprint(path_to_CityGML):
         # Extract only x and y for the 2D polygon
         points = [(coords[i], coords[i + 1]) for i in range(0, len(coords), 3)]
 
-        # Create a Polygon from the outer boundary points
-        polygon = Polygon(points)
+        # # Create a Polygon from the outer boundary points
+        # polygon = Polygon(points)
 
-        # Densify the Polygon's exterior boundary
-        linestring = polygon.exterior
-        footprint_densified = MultiPoint()
-        for i in np.arange(0, linestring.length, 0.2): #0.2 for dense representation, with 3, the alphashape warning will go away
-            s = substring(linestring, i, i + 0.2)
-            footprint_densified = footprint_densified.union(s.boundary)
+        # # Densify the Polygon's exterior boundary
+        # linestring = polygon.exterior
+        # footprint_densified = MultiPoint()
+        # for i in np.arange(0, linestring.length, 0.2): #0.2 for dense representation, with 3, the alphashape warning will go away
+        #     s = substring(linestring, i, i + 0.2)
+        #     footprint_densified = footprint_densified.union(s.boundary)
 
-        #Create np array from Multipoint object
-        result = np.array([(point.x, point.y) for point in footprint_densified.geoms])
+        # #Create np array from Multipoint object
+        # result = np.array([(point.x, point.y) for point in footprint_densified.geoms])
 
-        return result
+        return np.array(points)
 
     except ET.ParseError:
         print(f"Error parsing CityGML file: {path_to_CityGML}")
@@ -67,6 +67,7 @@ if __name__ == "__main__":
     plt.figure(figsize=(10,10))
     x = footprint[:, 0]
     y = footprint[:, 1]
-    plt.scatter(x, y, color="blue")
+    # plt.scatter(x, y, color="blue")
+    plt.plot(x, y, color="blue")
     plt.grid(True)
     plt.show()
