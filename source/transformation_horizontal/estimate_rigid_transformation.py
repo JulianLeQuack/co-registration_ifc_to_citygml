@@ -8,6 +8,7 @@ from source.transformation_horizontal.create_footprints.create_hull import creat
 
 from source.transformation_horizontal.rigid_transformation import Rigid_Transformation
 
+
 def compute_turning_angles(points):
     """
     Compute the turning angles (in radians) at each vertex of a closed polygon.
@@ -205,7 +206,7 @@ def main():
     citygml_path = "./test_data/citygml/DEBY_LOD2_4959457.gml"
 
     # Create the two example polygons.
-    polygon1 = create_concave_hull(create_IFC_footprint(ifc_path), 0.1)
+    polygon1 = create_concave_hull(create_IFC_footprint(ifc_path), 0.1) #0.1 
     polygon2 = create_CityGML_footprint(citygml_path)
 
     # Detect features (corners) using the turning angles.
@@ -217,8 +218,8 @@ def main():
     
     # Use RANSAC to find the best rigid transformation aligning polygon1's features to polygon2's features.
     rigid_transformation, inlier_pairs = estimate_rigid_transformation(features1, features2,
-                                                 distance_tol=5,
-                                                 angle_tol_deg=15)
+                                                 distance_tol=1, # 5
+                                                 angle_tol_deg=30) # 15
     
     if rigid_transformation is None:
         print("RANSAC failed to find a valid transformation.")

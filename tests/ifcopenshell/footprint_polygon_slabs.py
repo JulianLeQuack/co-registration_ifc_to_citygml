@@ -7,13 +7,13 @@ from shapely.ops import unary_union
 import matplotlib.pyplot as plt
 
 def main():
-    ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
-    # ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
+    # ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
+    ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
 
     ifc_file = ifcopenshell.open(ifc_path)
 
     settings = ifcopenshell.geom.settings()
-    elements = ifc_file.by_type("IfcWall")
+    elements = ifc_file.by_type("IfcSlab")
 
     polygons = []
 
@@ -70,11 +70,12 @@ def main():
             return
 
         # Simplify boundary
-        footprint_simplified = footprint.simplify(tolerance=0, preserve_topology=True)
+        footprint_simplified = footprint.simplify(tolerance=5, preserve_topology=True)
 
-        # Plot original and simplified
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+        # Plot original, simplified, and vertex points
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
 
+        # Subplot 1: full slab geometry
         for poly in multi_poly.geoms:
             x, y = poly.exterior.xy
             ax1.fill(x, y, alpha=0.5, fc='lightblue', ec='blue')
@@ -86,6 +87,7 @@ def main():
         ax1.set_ylabel("Y")
         ax1.set_aspect('equal')
 
+        # Subplot 2: simplified footprint outline
         outline_x, outline_y = footprint_simplified.exterior.xy
         ax2.plot(outline_x, outline_y, color="green", linewidth=2)
         ax2.set_title("Simplified Slab Footprint Outline")
@@ -93,12 +95,17 @@ def main():
         ax2.set_ylabel("Y")
         ax2.set_aspect('equal')
 
+        # Subplot 3: vertices of simplified footprint
+        ax3.scatter(outline_x, outline_y, color="green")
+        ax3.set_title("Vertices of Simplified Footprint")
+        ax3.set_xlabel("X")
+        ax3.set_ylabel("Y")
+        ax3.set_aspect('equal')
+
         plt.tight_layout()
         plt.show()
     else:
         print("No valid polygons available to create a MultiPolygon.")
-
-    return np.array(footprint_simplified)
 
 if __name__ == '__main__':
     main()

@@ -18,7 +18,7 @@ def create_IFC_footprint(path_to_IFC):
     ifc_file = ifcopenshell.open(path_to_IFC)
 
     # Extract IfcWallStandardCase elements from the Ifc File. They will be used to create the building footprint.
-    walls = ifc_file.by_type("IfcWallStandardCase")
+    walls = ifc_file.by_type("IfcWall")
 
     # Use world coordinates, otherwise all wall elements are in a local CRS around 0,0
     settings = ifcopenshell.geom.settings()
