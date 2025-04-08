@@ -6,7 +6,7 @@ from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
 import matplotlib.pyplot as plt
 
-def create_IFC_footprint(ifc_path, tolerance=5, ):
+def create_IFC_footprint_polygon(ifc_path, tolerance=5):
     """
     Extracts and simplifies the footprint from an IFC file using world coordinates.
 
@@ -78,7 +78,8 @@ def create_IFC_footprint(ifc_path, tolerance=5, ):
         return None, None
 
     # Simplify the footprint boundary
-    footprint_simplified = footprint.simplify(tolerance=5, preserve_topology=True)
+    footprint_simplified = footprint.simplify(tolerance=tolerance, preserve_topology=True)
+    # footprint_simplified = np.array(footprint_simplified.exterior.coords)
 
     return multi_poly, footprint_simplified
 
@@ -87,7 +88,7 @@ def main():
     ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
     # ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
     
-    multi_poly, footprint_simplified = create_IFC_footprint(ifc_path)
+    multi_poly, footprint_simplified = create_IFC_footprint_polygon(ifc_path, tolerance=5)
 
     if multi_poly is None or footprint_simplified is None:
         print("No footprint to display.")

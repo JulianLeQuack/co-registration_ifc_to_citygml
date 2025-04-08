@@ -5,6 +5,7 @@ import itertools
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import *
 from source.transformation_horizontal.create_footprints.create_IFC_footprint import *
 from source.transformation_horizontal.create_footprints.create_hull import create_concave_hull
+from tests.ifcopenshell.create_IFC_footprint_polygon import create_IFC_footprint_polygon
 
 from source.transformation_horizontal.rigid_transformation import Rigid_Transformation
 
@@ -206,12 +207,13 @@ def main():
     citygml_path = "./test_data/citygml/DEBY_LOD2_4959457.gml"
 
     # Create the two example polygons.
+    # _, polygon1 = create_IFC_footprint_polygon(ifc_path, tolerance=5)
     polygon1 = create_concave_hull(create_IFC_footprint(ifc_path), 0.1) #0.1 
     polygon2 = create_CityGML_footprint(citygml_path)
 
     # Detect features (corners) using the turning angles.
-    features1 = detect_features(polygon1, angle_threshold_deg=30)
-    features2 = detect_features(polygon2, angle_threshold_deg=30)
+    features1 = detect_features(polygon1, angle_threshold_deg=45)
+    features2 = detect_features(polygon2, angle_threshold_deg=45)
 
     print(f"Polygon1: {len(features1)} features")
     print(f"Polygon2: {len(features2)} features")
@@ -219,7 +221,7 @@ def main():
     # Use RANSAC to find the best rigid transformation aligning polygon1's features to polygon2's features.
     rigid_transformation, inlier_pairs = estimate_rigid_transformation(features1, features2,
                                                  distance_tol=1, # 5
-                                                 angle_tol_deg=30) # 15
+                                                 angle_tol_deg=45) # 15
     
     if rigid_transformation is None:
         print("RANSAC failed to find a valid transformation.")

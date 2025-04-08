@@ -74,12 +74,12 @@ def create_concave_hull(points: np.array, alpha: float=0.2):
 
 
 if __name__ == "__main__":
-    from .create_CityGML_footprint import create_CityGML_footprint
-    from .create_IFC_footprint import create_IFC_footprint
+    from source.transformation_horizontal.create_footprints.create_CityGML_footprint import create_CityGML_footprint
+    from source.transformation_horizontal.create_footprints.create_IFC_footprint import create_IFC_footprint
 
 
     alpha_ifc = 0.2
-    alpha_citygml = 0.05
+    alpha_citygml = 0
 
     ifc_original = create_IFC_footprint("./test_data/ifc/3.002 01-05-0501_EG.ifc")
     ifc_convex_hull = create_convex_hull(ifc_original)
@@ -112,7 +112,7 @@ if __name__ == "__main__":
     # IFC Convex Hull (Scatter plot)
     plt.subplot(2, 3, 2)
     if ifc_convex_hull.size > 0:
-        plt.scatter(ifc_convex_hull[:, 0], ifc_convex_hull[:, 1], c='b', label='IFC Convex Hull', s=5) #s is marker size
+        plt.plot(ifc_convex_hull[:, 0], ifc_convex_hull[:, 1], c='b', label='IFC Convex Hull', s=5) #s is marker size
     plt.title('IFC Convex Hull')
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
