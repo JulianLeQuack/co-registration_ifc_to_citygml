@@ -4,11 +4,12 @@ import xml.etree.ElementTree as ET
 
 from shapely.geometry import Polygon, MultiPolygon
 
-def create_CityGML_footprint(path_to_CityGML):
+def create_CityGML_footprint(path_to_CityGML, building_ids: list):
     """
-    Parses a CityGML file and returns a MultiPolygon. It searches for all ground surface elements,
-    extracts the coordinates from their posList, and forms a Polygon from each.
-    If only one polygon is found, it is wrapped in a MultiPolygon.
+    Parses a CityGML file and returns a MultiPolygon.
+    If building_ids (a list of strings) is provided, only footprints for those buildings
+    (matched via the 'gml:id' attribute of bldg:Building elements) are returned.
+    Otherwise, footprints from all ground surfaces in the file are processed.
     """
     try:
         # Parse the CityGML file
@@ -21,39 +22,59 @@ def create_CityGML_footprint(path_to_CityGML):
             'gml': 'http://www.opengis.net/gml'
         }
 
-        # Find all ground surfaces in the CityGML file
-        ground_surfaces = root.findall('.//bldg:GroundSurface', ns)
-        if not ground_surfaces:
-            raise ValueError("No ground surface found in the CityGML file.")
-
         polygons = []
-        for gs in ground_surfaces:
-            # Locate the first posList (assuming it's the outer boundary)
-            posList = gs.find('.//gml:posList', ns)
-            if posList is None:
-                print("Warning: A GroundSurface element without a posList was found; skipping it.")
-                continue
+        if building_ids:
+            # Process ground surfaces only from specified buildings
+            for b_id in building_ids:
+                building = root.find(f".//bldg:Building[@gml:id='{b_id}']", ns)
+                if building is None:
+                    print(f"Warning: No building found with gml:id '{b_id}'.")
+                    continue
+                # Get GroundSurface elements within this building
+                ground_surfaces = building.findall(".//bldg:GroundSurface", ns)
+                if not ground_surfaces:
+                    print(f"Warning: No GroundSurface found in building '{b_id}'.")
+                for gs in ground_surfaces:
+                    posList = gs.find('.//gml:posList', ns)
+                    if posList is None:
+                        print("Warning: A GroundSurface element without a posList was found; skipping it.")
+                        continue
 
-            # Assume coordinates are space separated and form triplets (x y z)
-            coords = list(map(float, posList.text.split()))
-            # Extract only x and y for the 2D polygon
-            points = [(coords[i], coords[i + 1]) for i in range(0, len(coords), 3)]
-
-            # Create polygon if points are sufficient
-            if len(points) >= 3:
-                poly = Polygon(points)
-                if poly.is_valid:
-                    polygons.append(poly)
-                else:
-                    print("Warning: An invalid polygon was created; skipping it.")
-            else:
-                print("Warning: Not enough points to form a polygon; skipping.")
-
-        # Wrap the polygons into a MultiPolygon
-        if polygons:
-            return MultiPolygon(polygons)
+                    # Coordinates should be space separated and form triplets (x y z)
+                    coords = list(map(float, posList.text.split()))
+                    # Extract x and y for the 2D polygon
+                    points = [(coords[i], coords[i + 1]) for i in range(0, len(coords), 3)]
+                    if len(points) >= 3:
+                        poly = Polygon(points)
+                        if poly.is_valid:
+                            polygons.append(poly)
+                        else:
+                            print("Warning: An invalid polygon was created; skipping it.")
+                    else:
+                        print("Warning: Not enough points to form a polygon; skipping.")
         else:
-            return MultiPolygon([])
+            # Fall back to processing all ground surfaces in the file
+            ground_surfaces = root.findall('.//bldg:GroundSurface', ns)
+            if not ground_surfaces:
+                raise ValueError("No ground surface found in the CityGML file.")
+            for gs in ground_surfaces:
+                posList = gs.find('.//gml:posList', ns)
+                if posList is None:
+                    print("Warning: A GroundSurface element without a posList was found; skipping it.")
+                    continue
+
+                coords = list(map(float, posList.text.split()))
+                points = [(coords[i], coords[i + 1]) for i in range(0, len(coords), 3)]
+                if len(points) >= 3:
+                    poly = Polygon(points)
+                    if poly.is_valid:
+                        polygons.append(poly)
+                    else:
+                        print("Warning: An invalid polygon was created; skipping it.")
+                else:
+                    print("Warning: Not enough points to form a polygon; skipping.")
+
+        return MultiPolygon(polygons) if polygons else MultiPolygon([])
 
     except ET.ParseError:
         print(f"Error parsing CityGML file: {path_to_CityGML}")
@@ -67,12 +88,12 @@ def create_CityGML_footprint(path_to_CityGML):
 
 
 if __name__ == "__main__":
-    # Use a test file (change path as needed)
-    #footprint = create_CityGML_footprint("./test_data/citygml/DEBY_LOD2_4959457.gml")
-    footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml")
+    # Use a test file and optionally a list of building IDs 
+    # For example, supply a list of building IDs: ['B1', 'B2']
+    footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml", ['DEBY_LOD2_4959793', 'DEBY_LOD2_4959323', 'DEBY_LOD2_4959321', 'DEBY_LOD2_4959324', 'DEBY_LOD2_4959459', 'DEBY_LOD2_4959322', 'DEBY_LOD2_4959458'])
+    # footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml", ["DEBY_LOD2_4959457"])
     print(type(footprint))
     plt.figure(figsize=(10,10))
-    # If you would like to see each polygon, iterate through them:
     if not footprint.is_empty:
         for poly in footprint.geoms:
             x, y = poly.exterior.xy
