@@ -253,7 +253,7 @@ def main():
     plt.plot(polygon1_transformed[:, 0], polygon1_transformed[:, 1], 'ro-', label='Polygon1 (Transformed)')
     plt.plot(polygon2[:, 0], polygon2[:, 1], 'go-', label='Polygon2')
     plt.axis('equal')
-    plt.title("RANSAC Alignment and Least Squares Refinement")
+    plt.title("Rough Alignment and Least Squares Refinement")
     plt.xlabel("X")
     plt.ylabel("Y")
     plt.legend()

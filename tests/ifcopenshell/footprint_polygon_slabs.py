@@ -70,7 +70,7 @@ def main():
             return
 
         # Simplify boundary
-        footprint_simplified = footprint.simplify(tolerance=5, preserve_topology=True)
+        footprint_simplified = footprint.simplify(tolerance=0, preserve_topology=True)
 
         # Plot original, simplified, and vertex points
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))

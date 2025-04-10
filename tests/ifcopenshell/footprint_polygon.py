@@ -78,7 +78,7 @@ def create_IFC_footprint(ifc_path, tolerance=5, ):
         return None, None
 
     # Simplify the footprint boundary
-    footprint_simplified = footprint.simplify(tolerance=5, preserve_topology=True)
+    footprint_simplified = footprint.simplify(tolerance=0, preserve_topology=True)
 
     return multi_poly, footprint_simplified
 
