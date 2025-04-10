@@ -97,6 +97,9 @@ if __name__ == "__main__":
     # edges shorter than 2.0 to be minor and filter them out.
     min_edge_len = 7  # adjust as needed (e.g., in meters)
     filtered_features = filter_features_by_edge_length(features, footprint, min_edge_len=min_edge_len)
+
+    print(f"Detected Features: {features[0]}")
+    print(f"Filtered Features: {filtered_features[0]}")
     
     # Plot the footprint and the detected (and filtered) features.
     plt.figure(figsize=(10, 10))
