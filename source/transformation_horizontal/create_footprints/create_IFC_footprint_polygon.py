@@ -6,27 +6,25 @@ from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
 import matplotlib.pyplot as plt
 
-def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab", tolerance=0.0):
+def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab"):
     """
-    Reads an IFC file and extracts geometry for elements of type `ifc_type`, then computes and returns:
-    
-      - multi_poly: A MultiPolygon with each individual extracted polygon.
-      - footprint: A MultiPolygon that is the union of all valid polygon geometries (footprint).
-      - simplified_polys: A list of simplified footprint polygons.
+    Reads an IFC file and extracts geometry for elements of type `ifc_type`,
+    then computes and returns a footprint as a MultiPolygon that contains all
+    disjoint polygon exteriors.
     
     Parameters:
         ifc_path (str): Path to the IFC file.
         ifc_type (str): IFC element type to process (default "IfcSlab").
-        tolerance (float): Simplification tolerance (default 0.0, i.e. no simplification).
     
     Returns:
-        tuple: (multi_poly, footprint, simplified_polys)
+        MultiPolygon: The union of all valid polygon geometries.
     """
     ifc_file = ifcopenshell.open(ifc_path)
     settings = ifcopenshell.geom.settings()
     elements = ifc_file.by_type(ifc_type)
     polygons = []
 
+    # Extract geometry for each element
     for element in elements:
         try:
             shape = ifcopenshell.geom.create_shape(settings, element)
@@ -40,7 +38,6 @@ def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab", tolerance=0.0):
 
         transformed_verts = []
         for v in verts:
-            # Convert to homogeneous coordinates and apply transformation
             v_homog = np.array([v[0], v[1], v[2], 1.0])
             v_transformed = matrix @ v_homog
             transformed_verts.append(v_transformed[:3])
@@ -52,9 +49,9 @@ def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab", tolerance=0.0):
 
     if not polygons:
         print("No polygons extracted.")
-        return None, None, None
+        return None
 
-    # Build a list of valid shapely Polygons
+    # Build a list of valid shapely Polygons.
     shapely_polygons = []
     for coords in polygons:
         if len(coords) < 3:
@@ -70,13 +67,11 @@ def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab", tolerance=0.0):
             print(f"Error creating polygon: {ex}")
 
     if not shapely_polygons:
-        print("No valid polygons available to create a MultiPolygon.")
-        return None, None, None
+        print("No valid polygons available to create a footprint.")
+        return None
 
-    multi_poly = MultiPolygon(shapely_polygons)
-
-    # Compute the union of all polygons; this combines overlapping areas while
-    # preserving disjoint areas. The result might be a Polygon or MultiPolygon.
+    # Compute the union of all valid polygons. This combines overlapping areas
+    # while keeping disjoint parts separate.
     union_poly = unary_union(shapely_polygons)
     if union_poly.geom_type == "Polygon":
         footprint = MultiPolygon([union_poly])
@@ -84,61 +79,29 @@ def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab", tolerance=0.0):
         footprint = union_poly
     else:
         print("Unexpected geometry type:", union_poly.geom_type)
-        return None, None, None
+        return None
 
-    # Simplify each polygon in the footprint using the provided tolerance.
-    simplified_polys = [poly.simplify(tolerance=tolerance, preserve_topology=True) for poly in footprint.geoms]
-
-    return multi_poly, footprint, simplified_polys
+    return footprint
 
 def main():
     # Choose your IFC file path:
     # ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
     ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
 
-    multi_poly, footprint, simplified_polys = create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab", tolerance=0.0)
-    
-    if multi_poly is None or footprint is None or simplified_polys is None:
+    footprint = create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab")
+    if footprint is None:
         print("Failed to create IFC footprint polygon.")
         return
 
-    # Set up plots to visualize:
-    # 1. The full slab geometry (the original MultiPolygon).
-    # 2. The simplified footprint outlines.
-    # 3. The vertices of the simplified footprint polygons.
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
-
-    # Subplot 1: Full slab geometry.
-    for poly in multi_poly.geoms:
+    # Plot the footprint MultiPolygon
+    plt.figure(figsize=(8, 8))
+    for poly in footprint.geoms:
         x, y = poly.exterior.xy
-        ax1.fill(x, y, alpha=0.5, fc='lightblue', ec='blue')
-        for interior in poly.interiors:
-            ix, iy = interior.xy
-            ax1.fill(ix, iy, alpha=0.5, fc='white', ec='red')
-    ax1.set_title("Extracted Slab MultiPolygon")
-    ax1.set_xlabel("X")
-    ax1.set_ylabel("Y")
-    ax1.set_aspect('equal')
-
-    # Subplot 2: Simplified footprint outlines.
-    for poly in simplified_polys:
-        outline_x, outline_y = poly.exterior.xy
-        ax2.plot(outline_x, outline_y, color="green", linewidth=2)
-    ax2.set_title("Simplified Slab Footprint Outlines")
-    ax2.set_xlabel("X")
-    ax2.set_ylabel("Y")
-    ax2.set_aspect('equal')
-
-    # Subplot 3: Vertices of simplified footprints.
-    for poly in simplified_polys:
-        x, y = poly.exterior.xy
-        ax3.scatter(x, y, color="green")
-    ax3.set_title("Vertices of Simplified Footprints")
-    ax3.set_xlabel("X")
-    ax3.set_ylabel("Y")
-    ax3.set_aspect('equal')
-
-    plt.tight_layout()
+        plt.plot(x, y, color="green", linewidth=2)
+    plt.title("IFC Footprint MultiPolygon")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.gca().set_aspect('equal', adjustable='box')
     plt.show()
 
 if __name__ == '__main__':
