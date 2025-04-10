@@ -55,7 +55,7 @@ if __name__ == "__main__":
     alpha_citygml = 0
 
     # Create footprints for IFC
-    ifc_original = create_IFC_footprint("./test_data/ifc/3.002 01-05-0501_EG.ifc")
+    ifc_original = create_IFC_footprint("./test_data/ifc/3.003 01-05-0507_EG.ifc")
     # ifc_convex = create_convex_hull(ifc_original)
     ifc_concave = create_hull(ifc_original, alpha_ifc)
     print(f"Concave Hull Type: {type(ifc_concave)}")

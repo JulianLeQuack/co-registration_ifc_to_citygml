@@ -43,6 +43,7 @@ def main():
         print("No polygons extracted.")
         return
 
+    # Build a list of valid shapely Polygons
     shapely_polygons = []
     for coords in polygons:
         if len(coords) < 3:
@@ -59,23 +60,28 @@ def main():
     if shapely_polygons:
         multi_poly = MultiPolygon(shapely_polygons)
 
-        # Compute union and extract main footprint
+        # Compute union: this will combine all overlapping areas but keep disjoint parts separate.
         union_poly = unary_union(shapely_polygons)
+        # If union returns a single Polygon, wrap it in a MultiPolygon.
         if union_poly.geom_type == "Polygon":
-            footprint = union_poly
+            footprint = MultiPolygon([union_poly])
         elif union_poly.geom_type == "MultiPolygon":
-            footprint = max(union_poly.geoms, key=lambda p: p.area)
+            footprint = union_poly
         else:
             print("Unexpected geometry type:", union_poly.geom_type)
             return
 
-        # Simplify boundary
-        footprint_simplified = footprint.simplify(tolerance=0, preserve_topology=True)
+        # Simplify boundaries for each polygon in the footprint.
+        # (Using a tolerance of 0 here preserves all vertices; adjust if needed for your data.)
+        simplified_polys = [poly.simplify(tolerance=0, preserve_topology=True) for poly in footprint.geoms]
 
-        # Plot original, simplified, and vertex points
+        # Set up plots to visualize:
+        # 1. The full slab geometry from the original MultiPolygon.
+        # 2. The simplified footprint outlines.
+        # 3. The vertices of the simplified footprints.
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
 
-        # Subplot 1: full slab geometry
+        # Subplot 1: full slab geometry.
         for poly in multi_poly.geoms:
             x, y = poly.exterior.xy
             ax1.fill(x, y, alpha=0.5, fc='lightblue', ec='blue')
@@ -87,17 +93,20 @@ def main():
         ax1.set_ylabel("Y")
         ax1.set_aspect('equal')
 
-        # Subplot 2: simplified footprint outline
-        outline_x, outline_y = footprint_simplified.exterior.xy
-        ax2.plot(outline_x, outline_y, color="green", linewidth=2)
-        ax2.set_title("Simplified Slab Footprint Outline")
+        # Subplot 2: simplified footprint outlines.
+        for poly in simplified_polys:
+            outline_x, outline_y = poly.exterior.xy
+            ax2.plot(outline_x, outline_y, color="green", linewidth=2)
+        ax2.set_title("Simplified Slab Footprint Outlines")
         ax2.set_xlabel("X")
         ax2.set_ylabel("Y")
         ax2.set_aspect('equal')
 
-        # Subplot 3: vertices of simplified footprint
-        ax3.scatter(outline_x, outline_y, color="green")
-        ax3.set_title("Vertices of Simplified Footprint")
+        # Subplot 3: vertices of the simplified footprints.
+        for poly in simplified_polys:
+            x, y = poly.exterior.xy
+            ax3.scatter(x, y, color="green")
+        ax3.set_title("Vertices of Simplified Footprints")
         ax3.set_xlabel("X")
         ax3.set_ylabel("Y")
         ax3.set_aspect('equal')
