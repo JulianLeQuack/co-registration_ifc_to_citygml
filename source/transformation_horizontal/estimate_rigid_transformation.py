@@ -5,46 +5,11 @@ import itertools
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import *
 from source.transformation_horizontal.create_footprints.create_IFC_footprint import *
 from source.transformation_horizontal.create_footprints.create_hull import create_concave_hull
-from tests.ifcopenshell.create_IFC_footprint_polygon import create_IFC_footprint_polygon
+from source.transformation_horizontal.detect_features import detect_features
 
 from source.transformation_horizontal.rigid_transformation import Rigid_Transformation
 
 
-def compute_turning_angles(points):
-    """
-    Compute the turning angles (in radians) at each vertex of a closed polygon.
-    For each vertex, the angle is computed between the incoming and outgoing edges.
-    """
-    angles = []
-    n = len(points)
-    for i in range(n):
-        prev = points[i - 1]
-        curr = points[i]
-        nxt = points[(i + 1) % n]
-        # Vectors for incoming and outgoing edges
-        v1 = curr - prev
-        v2 = nxt - curr
-        # Signed angle using arctan2 of the determinant and dot product.
-        angle = np.arctan2(np.linalg.det([v1, v2]), np.dot(v1, v2))
-        angles.append(angle)
-    return np.array(angles)
-
-def detect_features(points, angle_threshold_deg=30):
-    """
-    Detect features based on the turning angles.
-    
-    A vertex is marked as a feature (corner) if the absolute turning angle 
-    (in degrees) is above a given threshold.
-    
-    Returns a list of tuples: (vertex index, point coordinate, turning angle in degrees).
-    """
-    angles = compute_turning_angles(points)
-    angles_deg = np.degrees(angles)
-    features = []
-    for i, angle in enumerate(angles_deg):
-        if abs(angle) >= angle_threshold_deg:
-            features.append((i, points[i], angle))
-    return features
 
 def estimate_transformation_from_2pairs(source1, source2, target1, target2) -> Rigid_Transformation:
     """
