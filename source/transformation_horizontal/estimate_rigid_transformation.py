@@ -4,7 +4,7 @@ import itertools
 
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import *
 from source.transformation_horizontal.create_footprints.create_IFC_footprint import *
-from source.transformation_horizontal.create_footprints.create_hull import create_concave_hull
+from source.transformation_horizontal.create_footprints.create_hull import create_hull
 from source.transformation_horizontal.detect_features import detect_features
 
 from source.transformation_horizontal.rigid_transformation import Rigid_Transformation
@@ -173,7 +173,7 @@ def main():
 
     # Create the two example polygons.
     # _, polygon1 = create_IFC_footprint_polygon(ifc_path, tolerance=5)
-    polygon1 = create_concave_hull(create_IFC_footprint(ifc_path), 0.1) #0.1 
+    polygon1 = create_hull(create_IFC_footprint(ifc_path), 0.1) #0.1 
     polygon2 = create_CityGML_footprint(citygml_path)
 
     # Detect features (corners) using the turning angles.
