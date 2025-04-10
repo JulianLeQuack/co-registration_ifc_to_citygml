@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from shapely.geometry import MultiPoint, LineString, MultiLineString
+from shapely.geometry import MultiPoint, LineString, MultiLineString, MultiPolygon
 from shapely.ops import substring, unary_union
 
 from alphashape import alphashape
@@ -18,142 +18,122 @@ def create_convex_hull(points: np.array):
         s = substring(footprint_convex_hull, i, i+0.2)
         footprint_convex_hull_densified = footprint_convex_hull_densified.union(s.boundary)
 
-    #Create np array from Multipoint object
-    result = np.array([(point.x,point.y) for point in footprint_convex_hull_densified.geoms])
-
+    # Create np array from MultiPoint object
+    result = np.array([(point.x, point.y) for point in footprint_convex_hull_densified.geoms])
     return result
 
-def create_concave_hull(points: np.array, alpha: float=0.2):
+
+def create_concave_hull(points: np.array, alpha: float = 0.2) -> MultiPolygon:
     """
-    Creates a concave hull from a set of points, handling MultiLineString results.
+    Creates a concave hull from a set of points, always returned as a MultiPolygon.
+    If the alphashape result is a single Polygon, it's wrapped in a MultiPolygon.
+    If the alphashape returns a MultiPolygon, it is returned as-is.
+    For other geometry types or an empty result, an empty MultiPolygon is returned.
     """
-    footprint_points = points
-    footprint_alphashape = alphashape(footprint_points, alpha)
+    footprint_alphashape = alphashape(points, alpha)
 
-    footprint = footprint_alphashape.exterior.coords
+    if footprint_alphashape.is_empty:
+        return MultiPolygon([])
 
-    # densified_lines = []  # Store densified LineStrings
-
-    # if isinstance(footprint_alphashape, LineString):
-    #     # Handle LineString directly
-    #     for i in np.arange(0, footprint_alphashape.length, 0.2):
-    #         s = substring(footprint_alphashape, i, i + 0.2)
-    #         densified_lines.append(s)
-
-    # elif isinstance(footprint_alphashape, MultiLineString):
-    #     # Handle MultiLineString by iterating through components
-    #     for line in footprint_alphashape.geoms:
-    #         for i in np.arange(0, line.length, 0.2):
-    #             s = substring(line, i, i + 0.2)
-    #             densified_lines.append(s)
-    # elif footprint_alphashape.is_empty:
-    #     return np.array([]) #Return empty array if alphashape is empty.
-    # else:
-    #     # Handle other geometry types (if necessary)
-    #     return np.array([])  # Return empty array or handle as needed
-
-    # # Combine densified LineStrings
-    # if densified_lines:
-    #     densified_multiline = unary_union(densified_lines)
-    #     if isinstance(densified_multiline, LineString):
-    #         points_list = [(x,y) for x,y in densified_multiline.coords]
-    #         return np.array(points_list)
-    #     elif isinstance(densified_multiline, MultiLineString):
-    #         points_list = []
-    #         for line in densified_multiline.geoms:
-    #             points_list.extend([(x,y) for x,y in line.coords])
-    #         return np.array(points_list)
-
-    #     else:
-    #         return np.array([])#return empty array if unary_union fails.
-
-    # else:
-    #     return np.array([])  # Return empty array if no densified lines
-
-    return np.array(footprint)
+    geom_type = footprint_alphashape.geom_type
+    if geom_type == 'Polygon':
+        return MultiPolygon([footprint_alphashape])
+    elif geom_type == 'MultiPolygon':
+        return footprint_alphashape
+    else:
+        # In case the alphashape returns a geometry we don't expect (e.g. LineString),
+        # we return an empty MultiPolygon.
+        return MultiPolygon([])
 
 
 if __name__ == "__main__":
     from source.transformation_horizontal.create_footprints.create_CityGML_footprint import create_CityGML_footprint
     from source.transformation_horizontal.create_footprints.create_IFC_footprint import create_IFC_footprint
 
-
+    # Set alpha values for alphashape
     alpha_ifc = 0.2
     alpha_citygml = 0
 
+    # Create footprints for IFC
     ifc_original = create_IFC_footprint("./test_data/ifc/3.002 01-05-0501_EG.ifc")
-    ifc_convex_hull = create_convex_hull(ifc_original)
-    ifc_alphashape = create_concave_hull(ifc_original, alpha_ifc)
+    ifc_convex = create_convex_hull(ifc_original)
+    ifc_concave = create_concave_hull(ifc_original, alpha_ifc)
 
+    # Create footprints for CityGML
     citygml_original = create_CityGML_footprint("./test_data/citygml/DEBY_LOD2_4959457.gml")
-    citygml_convex_hull = create_convex_hull(citygml_original)
-    citygml_alphashape = create_concave_hull(citygml_original, alpha_citygml)
-
-    print(ifc_original[0])
-    print(ifc_convex_hull[0])
-    print(ifc_alphashape[0])
-
-    print(citygml_original[0])
-    print(citygml_convex_hull[0])
-    print(citygml_alphashape[0])
+    citygml_convex = create_convex_hull(citygml_original)
+    citygml_concave = create_concave_hull(citygml_original, alpha_citygml)
 
     plt.figure(figsize=(18, 12))
 
-    # IFC (Scatter plot)
+    # IFC Original
     plt.subplot(2, 3, 1)
     if ifc_original.size > 0:
-        plt.scatter(ifc_original[:, 0], ifc_original[:, 1], c='k', label='IFC Original', s=5) #s is marker size
+        plt.scatter(ifc_original[:, 0], ifc_original[:, 1], c='k',
+                    label='IFC Original', s=5)
     plt.title('IFC Original')
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
     plt.grid(True)
     plt.legend()
 
-    # IFC Convex Hull (Scatter plot)
+    # IFC Convex Hull
     plt.subplot(2, 3, 2)
-    if ifc_convex_hull.size > 0:
-        plt.plot(ifc_convex_hull[:, 0], ifc_convex_hull[:, 1], c='b', label='IFC Convex Hull', s=5) #s is marker size
+    if ifc_convex.size > 0:
+        plt.plot(ifc_convex[:, 0], ifc_convex[:, 1], c='b',
+                 label='IFC Convex Hull')
     plt.title('IFC Convex Hull')
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
     plt.grid(True)
     plt.legend()
 
-    # IFC Alpha Shape (Scatter plot)
+    # IFC Concave Hull
     plt.subplot(2, 3, 3)
-    if ifc_alphashape.size > 0:
-        plt.scatter(ifc_alphashape[:, 0], ifc_alphashape[:, 1], c='r', label=f'IFC Alpha Shape (α={alpha_ifc})', s=5)
-    plt.title(f'IFC Alpha Shape (α={alpha_ifc})')
+    if not ifc_concave.is_empty:
+        for poly in ifc_concave.geoms:
+            x, y = poly.exterior.xy
+            plt.plot(x, y, c='r', label=f'IFC Concave Hull (α={alpha_ifc})')
+    else:
+        plt.text(0.5, 0.5, "Empty", horizontalalignment='center')
+    plt.title(f'IFC Concave Hull (α={alpha_ifc})')
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
     plt.grid(True)
     plt.legend()
 
-    # CityGML (Scatter plot)
+    # CityGML Original
     plt.subplot(2, 3, 4)
     if citygml_original.size > 0:
-        plt.scatter(citygml_original[:, 0], citygml_original[:, 1], c='k', label='CityGML Original', s=5) #s is marker size
+        plt.scatter(citygml_original[:, 0], citygml_original[:, 1], c='k',
+                    label='CityGML Original', s=5)
     plt.title('CityGML Original')
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
     plt.grid(True)
     plt.legend()
 
-    # CityGML Convex Hull (Scatter plot)
+    # CityGML Convex Hull
     plt.subplot(2, 3, 5)
-    if citygml_convex_hull.size > 0:
-        plt.scatter(citygml_convex_hull[:, 0], citygml_convex_hull[:, 1], c='g', label='CityGML Convex Hull', s=5)
+    if citygml_convex.size > 0:
+        plt.plot(citygml_convex[:, 0], citygml_convex[:, 1], c='g',
+                 label='CityGML Convex Hull')
     plt.title('CityGML Convex Hull')
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
     plt.grid(True)
     plt.legend()
 
-    # CityGML Alpha Shape (Scatter plot)
+    # CityGML Concave Hull
     plt.subplot(2, 3, 6)
-    if citygml_alphashape.size > 0:
-        plt.scatter(citygml_alphashape[:, 0], citygml_alphashape[:, 1], c='m', label=f'CityGML Alpha Shape (α={alpha_citygml})', s=5)
-    plt.title(f'CityGML Alpha Shape (α={alpha_citygml})')
+    if not citygml_concave.is_empty:
+        for poly in citygml_concave.geoms:
+            x, y = poly.exterior.xy
+            plt.plot(x, y, c='m',
+                     label=f'CityGML Concave Hull (α={alpha_citygml})')
+    else:
+        plt.text(0.5, 0.5, "Empty", horizontalalignment='center')
+    plt.title(f'CityGML Concave Hull (α={alpha_citygml})')
     plt.xlabel('X Coordinate')
     plt.ylabel('Y Coordinate')
     plt.grid(True)
