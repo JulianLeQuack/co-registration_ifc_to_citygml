@@ -1,14 +1,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
 import xml.etree.ElementTree as ET
 
-from shapely.geometry import MultiPoint, Polygon, LineString
-from shapely.ops import substring
-
+from shapely.geometry import Polygon, MultiPolygon
 
 def create_CityGML_footprint(path_to_CityGML):
-
+    """
+    Parses a CityGML file and returns a MultiPolygon. It searches for all ground surface elements,
+    extracts the coordinates from their posList, and forms a Polygon from each.
+    If only one polygon is found, it is wrapped in a MultiPolygon.
+    """
     try:
         # Parse the CityGML file
         tree = ET.parse(path_to_CityGML)
@@ -20,54 +21,61 @@ def create_CityGML_footprint(path_to_CityGML):
             'gml': 'http://www.opengis.net/gml'
         }
 
-        # Find the first ground surface in the CityGML file
-        gs = root.find('.//bldg:GroundSurface', ns)
-        if gs is None:
+        # Find all ground surfaces in the CityGML file
+        ground_surfaces = root.findall('.//bldg:GroundSurface', ns)
+        if not ground_surfaces:
             raise ValueError("No ground surface found in the CityGML file.")
 
-        # Locate the first posList (assuming it's the outer boundary)
-        posList = gs.find('.//gml:posList', ns)
-        if posList is None:
-            raise ValueError("No posList found in the GroundSurface.")
+        polygons = []
+        for gs in ground_surfaces:
+            # Locate the first posList (assuming it's the outer boundary)
+            posList = gs.find('.//gml:posList', ns)
+            if posList is None:
+                print("Warning: A GroundSurface element without a posList was found; skipping it.")
+                continue
 
-        # Assume coordinates are space separated
-        coords = list(map(float, posList.text.split()))
+            # Assume coordinates are space separated and form triplets (x y z)
+            coords = list(map(float, posList.text.split()))
+            # Extract only x and y for the 2D polygon
+            points = [(coords[i], coords[i + 1]) for i in range(0, len(coords), 3)]
 
-        # Extract only x and y for the 2D polygon
-        points = [(coords[i], coords[i + 1]) for i in range(0, len(coords), 3)]
+            # Create polygon if points are sufficient
+            if len(points) >= 3:
+                poly = Polygon(points)
+                if poly.is_valid:
+                    polygons.append(poly)
+                else:
+                    print("Warning: An invalid polygon was created; skipping it.")
+            else:
+                print("Warning: Not enough points to form a polygon; skipping.")
 
-        # # Create a Polygon from the outer boundary points
-        # polygon = Polygon(points)
-
-        # # Densify the Polygon's exterior boundary
-        # linestring = polygon.exterior
-        # footprint_densified = MultiPoint()
-        # for i in np.arange(0, linestring.length, 0.2): #0.2 for dense representation, with 3, the alphashape warning will go away
-        #     s = substring(linestring, i, i + 0.2)
-        #     footprint_densified = footprint_densified.union(s.boundary)
-
-        # #Create np array from Multipoint object
-        # result = np.array([(point.x, point.y) for point in footprint_densified.geoms])
-
-        return np.array(points)
+        # Wrap the polygons into a MultiPolygon
+        if polygons:
+            return MultiPolygon(polygons)
+        else:
+            return MultiPolygon([])
 
     except ET.ParseError:
         print(f"Error parsing CityGML file: {path_to_CityGML}")
-        return np.array([])
+        return MultiPolygon([])
     except ValueError as e:
         print(e)
-        return np.array([])
+        return MultiPolygon([])
     except Exception as e:
         print(f"An error occurred: {e}")
-        return np.array([])
+        return MultiPolygon([])
 
 
 if __name__ == "__main__":
-    footprint = create_CityGML_footprint("./test_data/citygml/DEBY_LOD2_4959457.gml")
+    # Use a test file (change path as needed)
+    #footprint = create_CityGML_footprint("./test_data/citygml/DEBY_LOD2_4959457.gml")
+    footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml")
+    print(type(footprint))
     plt.figure(figsize=(10,10))
-    x = footprint[:, 0]
-    y = footprint[:, 1]
-    # plt.scatter(x, y, color="blue")
-    plt.plot(x, y, color="blue")
+    # If you would like to see each polygon, iterate through them:
+    if not footprint.is_empty:
+        for poly in footprint.geoms:
+            x, y = poly.exterior.xy
+            plt.plot(x, y, color="blue")
     plt.grid(True)
     plt.show()
