@@ -52,7 +52,9 @@ def create_IFC_footprint(path_to_IFC) -> np.array:
 
 
 if __name__ == "__main__":
-    footprint = create_IFC_footprint("./test_data/ifc/3.002 01-05-0501_EG.ifc")
+    # footprint = create_IFC_footprint("./test_data/ifc/3.002 01-05-0501_EG.ifc")
+    footprint = create_IFC_footprint("./test_data/ifc/3.003 01-05-0507_EG.ifc")
+    print(f"Output Type: {type(footprint)}")
     plt.figure(figsize=(15, 10))
     if footprint.size > 0:
         x = footprint[:, 0]

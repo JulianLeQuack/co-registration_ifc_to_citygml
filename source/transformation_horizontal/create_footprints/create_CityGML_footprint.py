@@ -4,12 +4,15 @@ import xml.etree.ElementTree as ET
 
 from shapely.geometry import Polygon, MultiPolygon
 
-def create_CityGML_footprint(path_to_CityGML, building_ids: list):
+def create_CityGML_footprint(path_to_CityGML, building_ids: list) -> MultiPolygon:
     """
     Parses a CityGML file and returns a MultiPolygon.
     If building_ids (a list of strings) is provided, only footprints for those buildings
     (matched via the 'gml:id' attribute of bldg:Building elements) are returned.
     Otherwise, footprints from all ground surfaces in the file are processed.
+    :param path_to_CityGML: Path to the CityGML file
+    :param building_ids: List of building IDs to process
+    :return: MultiPolygon of the building footprints
     """
     try:
         # Parse the CityGML file
@@ -92,7 +95,7 @@ if __name__ == "__main__":
     # For example, supply a list of building IDs: ['B1', 'B2']
     footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml", ['DEBY_LOD2_4959793', 'DEBY_LOD2_4959323', 'DEBY_LOD2_4959321', 'DEBY_LOD2_4959324', 'DEBY_LOD2_4959459', 'DEBY_LOD2_4959322', 'DEBY_LOD2_4959458'])
     # footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml", ["DEBY_LOD2_4959457"])
-    print(type(footprint))
+    print(f"Ouput Type: {type(footprint)}")
     plt.figure(figsize=(10,10))
     if not footprint.is_empty:
         for poly in footprint.geoms:
