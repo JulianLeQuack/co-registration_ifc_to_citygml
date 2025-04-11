@@ -33,6 +33,12 @@ def create_DXF_footprint(path_to_DXF, wall_layer_name: str):
     if not points:
         raise ValueError("No ground surface points found in the DXF file.")
 
+    counter = 0
+    for point in points:
+        if point == [0.0, 0.0, 0.0]:
+            counter += 1
+    print(counter)
+
     return np.array(points)
 
 
