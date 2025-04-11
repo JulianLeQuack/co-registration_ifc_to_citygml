@@ -11,17 +11,9 @@ from source.transformation_horizontal.create_footprints.create_IFC_footprint_pol
 from source.transformation_horizontal.rigid_transformation import Rigid_Transformation
 
 
-
 def estimate_transformation_from_2pairs(source1, source2, target1, target2) -> Rigid_Transformation:
     """
     Estimate the 2D rigid transformation (rotation and translation) from two pairs of corresponding points.
-
-    Parameters:
-        source1, source2: Two 2D points from the source shape (e.g., polygon).
-        target1, target2: Corresponding 2D points in the target shape.
-
-    Returns:
-        A new Rigid_Transformation object representing the estimated transformation.
     """
     # Compute direction vectors.
     vector1 = source2 - source1
@@ -46,6 +38,7 @@ def estimate_transformation_from_2pairs(source1, source2, target1, target2) -> R
     # Return new transformation object.
     return Rigid_Transformation(t=t, theta=theta)
 
+
 def estimate_rigid_transformation(features1, features2, distance_tol=5.0, angle_tol_deg=10.0):
     """
     Use all possible feature combinations to estimate the best rigid transformation that aligns features1 to features2.
@@ -58,7 +51,7 @@ def estimate_rigid_transformation(features1, features2, distance_tol=5.0, angle_
       
     Returns:
       best_transformation: A Rigid_Transformation object representing the best transformation.
-      best_inliers: List of inlier feature pairs ((feature from polygon1, matching feature from polygon2)).
+      best_inliers: List of inlier feature pairs ((feature from source, matching feature from target)).
     """
     best_inlier_count = 0
     best_transformation = None
@@ -121,25 +114,18 @@ def estimate_rigid_transformation(features1, features2, distance_tol=5.0, angle_
                     
     return best_transformation, best_inliers
 
+
 def refine_rigid_transformation(inlier_pairs):
     """
     Refine the rigid transformation parameters (translation and rotation) using least squares.
-    
-    Parameters:
-      inlier_pairs: List of tuples ((feature from polygon1, matching feature from polygon2))
-                    where each feature is an array/list of 5 numbers:
-                    [poly_index, vertex_index, x_coordinate, y_coordinate, turning_angle_deg].
-                    
-    Returns:
-      refined_transformation: A refined Rigid_Transformation object.
     """
     if len(inlier_pairs) < 2:
         print("Not enough inlier pairs for refinement. Returning None.")
         return None
 
     # Extract corresponding points (x and y) from the inlier pairs.
-    P = np.array([pair[0][2:4] for pair in inlier_pairs])  # Points from polygon1.
-    Q = np.array([pair[1][2:4] for pair in inlier_pairs])  # Corresponding points from polygon2.
+    P = np.array([pair[0][2:4] for pair in inlier_pairs])  # Points from source.
+    Q = np.array([pair[1][2:4] for pair in inlier_pairs])  # Corresponding points from target.
     
     # Compute centroids.
     centroid_P = np.mean(P, axis=0)
@@ -172,115 +158,138 @@ def refine_rigid_transformation(inlier_pairs):
     
     return refined_transformation
 
-def main():
-    # ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
-    ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
 
+def transform_shapely_polygon(polygon, transformation):
+    """
+    Apply a given transformation to a Shapely Polygon or MultiPolygon and return the transformed geometry.
+    """
+    if hasattr(polygon, "geom_type"):
+        if polygon.geom_type == "MultiPolygon":
+            transformed_polys = []
+            for poly in polygon.geoms:
+                coords = np.array(poly.exterior.coords)
+                transformed_coords = transformation.apply_transformation(coords)
+                # Ensure closure.
+                if not np.allclose(transformed_coords[0], transformed_coords[-1]):
+                    transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
+                transformed_polys.append(Polygon(transformed_coords))
+            return MultiPolygon(transformed_polys)
+        elif polygon.geom_type == "Polygon":
+            coords = np.array(polygon.exterior.coords)
+            transformed_coords = transformation.apply_transformation(coords)
+            if not np.allclose(transformed_coords[0], transformed_coords[-1]):
+                transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
+            return Polygon(transformed_coords)
+        else:
+            print("Unexpected geometry type.")
+            return None
+    else:
+        print("Input is not a Shapely geometry.")
+        return None
+
+
+def main():
+    # Define file paths and other settings.
+    ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
     dxf_path = "./test_data/dxf/01-05-0501_EG.dxf"
     layer_name = "A_09_TRAGDECKE"  # Update if different
-
     citygml_path = "./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml"
-    citygml_buildings = ['DEBY_LOD2_4959793', 'DEBY_LOD2_4959323', 'DEBY_LOD2_4959321',
-                         'DEBY_LOD2_4959324', 'DEBY_LOD2_4959459', 'DEBY_LOD2_4959322',
-                         'DEBY_LOD2_4959458']
-    # citygml_buildings = ["DEBY_LOD2_4959457"]
+    citygml_buildings = ["DEBY_LOD2_4959457"]
 
-    # Create the two example footprints.
+    # Create footprints.
     polygon_ifc = create_IFC_footprint_polygon(ifc_path)
     polygon_citygml = create_CityGML_footprint(citygml_path, citygml_buildings)
     polygon_dxf = create_DXF_footprint_polygon(dxf_path, layer_name)
 
     # Detect features (corners) using turning angles.
     features_ifc = detect_features(polygon_ifc, angle_threshold_deg=45)
-    features_ifc = detect_features(polygon_citygml, angle_threshold_deg=45)
+    features_citygml = detect_features(polygon_citygml, angle_threshold_deg=45)
     features_dxf = detect_features(polygon_dxf, angle_threshold_deg=45)
 
+    # Filter features based on a minimum edge length.
     features_ifc_filtered = filter_features_by_edge_length(features_ifc, polygon_ifc, min_edge_len=7.0)
-    features_ifc_filtered = filter_features_by_edge_length(features_ifc, polygon_citygml, min_edge_len=7.0)
+    features_citygml_filtered = filter_features_by_edge_length(features_citygml, polygon_citygml, min_edge_len=7.0)
     features_dxf_filtered = filter_features_by_edge_length(features_dxf, polygon_dxf, min_edge_len=7.0)
 
     print(f"IFC Source: {len(features_ifc)} features, filtered down to {len(features_ifc_filtered)}")
-    print(f"CityGML Target: {len(features_ifc)} features, filtered down to {len(features_ifc_filtered)}")
+    print(f"CityGML Target: {len(features_citygml)} features, filtered down to {len(features_citygml_filtered)}")
     print(f"DXF Source: {len(features_dxf)} features, filtered down to {len(features_dxf_filtered)}")
     
-    # Rough estimation.
-    rigid_transformation, inlier_pairs = estimate_rigid_transformation(features_ifc_filtered, features_ifc_filtered,
-                                                 distance_tol=1,
-                                                 angle_tol_deg=45)
-    if rigid_transformation is None:
-        print("Estimation failed to find a valid transformation.")
+    # --- Estimate and refine transformation for IFC -> CityGML ---
+    print("\nEstimating transformation for IFC to CityGML...")
+    rigid_transformation_ifc, inlier_pairs_ifc = estimate_rigid_transformation(
+        features_ifc_filtered, features_citygml_filtered, distance_tol=1, angle_tol_deg=45)
+    if rigid_transformation_ifc is None:
+        print("Estimation for IFC failed to find a valid transformation.")
         return
+    print(f"IFC Initial Transformation: theta = {rigid_transformation_ifc.theta}, t = {rigid_transformation_ifc.t}")
+    print(f"Number of inlier pairs (IFC): {len(inlier_pairs_ifc)}")
     
-    print("\nBest transformation found (initial):")
-    print(f"Rotation angle theta [radians]: {rigid_transformation.theta}")
-    print(f"Translation vector t [x, y]: {rigid_transformation.t}")
-    print("Number of inlier pairs: ", len(inlier_pairs))
-    
-    # Refine the transformation.
-    refined_transformation = refine_rigid_transformation(inlier_pairs)
-    if refined_transformation is None:
-        print("Refinement failed.")
+    refined_transformation_ifc = refine_rigid_transformation(inlier_pairs_ifc)
+    if refined_transformation_ifc is None:
+        print("Refinement for IFC failed.")
         return
-
-    print("\nRefined transformation:")
-    print(f"Rotation angle theta [radians]: {refined_transformation.theta}")
-    print(f"Translation vector t [x, y]: {refined_transformation.t}")
+    print(f"Refined IFC Transformation: theta = {refined_transformation_ifc.theta}, t = {refined_transformation_ifc.t}")
     
-    # Apply the refined transformation to the entire multiPolygon footprint (polygon_ifc).
-    # Build a new MultiPolygon with each polygon transformed.
-    transformed_polys = []
-    if hasattr(polygon_ifc, "geom_type"):
-        if polygon_ifc.geom_type == "MultiPolygon":
-            for poly in polygon_ifc.geoms:
-                # Get full exterior
-                coords = np.array(poly.exterior.coords)
-                transformed_coords = refined_transformation.apply_transformation(coords)
-                # Ensure closure: if first and last point are not the same, append the first.
-                if not np.allclose(transformed_coords[0], transformed_coords[-1]):
-                    transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
-                transformed_polys.append(Polygon(transformed_coords))
-            polygon_ifc_transformed = MultiPolygon(transformed_polys)
-        elif polygon_ifc.geom_type == "Polygon":
-            coords = np.array(polygon_ifc.exterior.coords)
-            transformed_coords = refined_transformation.apply_transformation(coords)
-            if not np.allclose(transformed_coords[0], transformed_coords[-1]):
-                transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
-            polygon_ifc_transformed = Polygon(transformed_coords)
-        else:
-            print("Unexpected geometry type for polygon_ifc.")
-            return
-    else:
-        print("polygon_ifc is not a Shapely geometry.")
+    # Apply the refined transformation to the IFC footprint.
+    polygon_ifc_transformed = transform_shapely_polygon(polygon_ifc, refined_transformation_ifc)
+    
+    # --- Estimate and refine transformation for DXF -> CityGML ---
+    print("\nEstimating transformation for DXF to CityGML...")
+    rigid_transformation_dxf, inlier_pairs_dxf = estimate_rigid_transformation(
+        features_dxf_filtered, features_citygml_filtered, distance_tol=1, angle_tol_deg=45)
+    if rigid_transformation_dxf is None:
+        print("Estimation for DXF failed to find a valid transformation.")
         return
-
-    # Similarly, ensure polygon_citygml is handled for plotting. Assume polygon_citygml is already a Shapely geometry.
-    # Plot both footprints.
+    print(f"DXF Initial Transformation: theta = {rigid_transformation_dxf.theta}, t = {rigid_transformation_dxf.t}")
+    print(f"Number of inlier pairs (DXF): {len(inlier_pairs_dxf)}")
+    
+    refined_transformation_dxf = refine_rigid_transformation(inlier_pairs_dxf)
+    if refined_transformation_dxf is None:
+        print("Refinement for DXF failed.")
+        return
+    print(f"Refined DXF Transformation: theta = {refined_transformation_dxf.theta}, t = {refined_transformation_dxf.t}")
+    
+    # Apply the refined transformation to the DXF footprint.
+    polygon_dxf_transformed = transform_shapely_polygon(polygon_dxf, refined_transformation_dxf)
+    
+    # --- Plot all three footprints (aligned) ---
     plt.figure(figsize=(10, 10))
     
-    # Plot transformed IFC footprint (polygon_ifc_transformed)
-    if polygon_ifc_transformed.geom_type == "MultiPolygon":
-        for poly in polygon_ifc_transformed.geoms:
+    # Plot CityGML footprint (target) in blue.
+    if polygon_citygml.geom_type == "MultiPolygon":
+        for i, poly in enumerate(polygon_citygml.geoms):
             x, y = poly.exterior.xy
-            plt.plot(x, y, 'r-', linewidth=2, label='Transformed IFC Footprint')
+            plt.plot(x, y, 'b-', linewidth=2, label='CityGML Footprint' if i == 0 else "")
+    elif polygon_citygml.geom_type == "Polygon":
+        x, y = polygon_citygml.exterior.xy
+        plt.plot(x, y, 'b-', linewidth=2, label='CityGML Footprint')
+
+    # Plot transformed IFC footprint in red.
+    if polygon_ifc_transformed.geom_type == "MultiPolygon":
+        for i, poly in enumerate(polygon_ifc_transformed.geoms):
+            x, y = poly.exterior.xy
+            plt.plot(x, y, 'r-', linewidth=2, label='Transformed IFC Footprint' if i == 0 else "")
     elif polygon_ifc_transformed.geom_type == "Polygon":
         x, y = polygon_ifc_transformed.exterior.xy
         plt.plot(x, y, 'r-', linewidth=2, label='Transformed IFC Footprint')
     
-    # Plot CityGML footprint (polygon_citygml). If MultiPolygon, iterate.
-    if polygon_citygml.geom_type == "MultiPolygon":
-        for poly in polygon_citygml.geoms:
+    # Plot transformed DXF footprint in green.
+    if polygon_dxf_transformed.geom_type == "MultiPolygon":
+        for i, poly in enumerate(polygon_dxf_transformed.geoms):
             x, y = poly.exterior.xy
-            plt.plot(x, y, 'b-', linewidth=2, label='CityGML Footprint')
-    elif polygon_citygml.geom_type == "Polygon":
-        x, y = polygon_citygml.exterior.xy
-        plt.plot(x, y, 'b-', linewidth=2, label='CityGML Footprint')
+            plt.plot(x, y, 'g-', linewidth=2, label='Transformed DXF Footprint' if i == 0 else "")
+    elif polygon_dxf_transformed.geom_type == "Polygon":
+        x, y = polygon_dxf_transformed.exterior.xy
+        plt.plot(x, y, 'g-', linewidth=2, label='Transformed DXF Footprint')
     
     plt.axis('equal')
-    plt.title("Footprints with Refined Transformation Applied")
+    plt.title("Coregistered Footprints: IFC, CityGML, and DXF")
     plt.xlabel("X Coordinate")
     plt.ylabel("Y Coordinate")
     plt.legend()
     plt.show()
+
 
 if __name__ == "__main__":
     main()
