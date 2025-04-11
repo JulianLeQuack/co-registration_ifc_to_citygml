@@ -105,10 +105,10 @@ def create_DXF_footprint_polygon(path_to_dxf, layer_name: str, use_origin_filter
 if __name__ == "__main__":
     # Specify your DXF file path and the target layer name.
     dxf_path = "./test_data/dxf/01-05-0501_EG.dxf"  # Update with your actual file path
-    layer_name = "A_01_TRAGWAND"  # Update if different
+    layer_name = "A_09_TRAGDECKE"  # Update if different
 
     # Extract the footprint as a MultiPolygon
-    footprint = create_DXF_footprint_polygon(dxf_path, layer_name, use_origin_filter=True, origin_threshold=10.0)
+    footprint = create_DXF_footprint_polygon(dxf_path, layer_name, use_origin_filter=False, origin_threshold=10.0)
 
     # Plot the resulting footprint.
     plt.figure(figsize=(10, 10))
