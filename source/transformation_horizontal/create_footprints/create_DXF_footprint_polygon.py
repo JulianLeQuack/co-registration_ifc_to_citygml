@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import ezdxf
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Polygon, MultiPolygon
+from shapely.ops import unary_union, polygonize
 
 def to_2d(point):
     """
@@ -8,22 +9,22 @@ def to_2d(point):
     """
     return (point[0], point[1])
 
-def extract_lines_from_dxf(path_to_dxf, layer_name: str):
+def create_DXF_footprint_polygon(path_to_dxf, layer_name: str, use_origin_filter: bool = True, origin_threshold: float = 10.0):
     """
-    Extracts individual 2D line segments from a DXF file on the specified layer.
-    
-    It processes:
-      - LINE entities (directly extracting start and end points)
-      - POLYLINE and LWPOLYLINE entities (splitting them into consecutive segments)
+    Extracts individual 2D line segments from a DXF file on the specified layer,
+    applies a filter to ignore any segment starting or ending at (0,0) that are longer than origin_threshold,
+    and then constructs a footprint by performing a unary union followed by polygonization.
     
     All coordinates are converted to 2D (ignoring Z).
     
     Parameters:
         path_to_dxf (str): Path to the DXF file.
         layer_name (str): Name of the DXF layer to query.
+        use_origin_filter (bool): Whether to ignore lines with start or end at (0,0) that exceed the threshold.
+        origin_threshold (float): Length threshold (in meters) for ignoring lines.
     
     Returns:
-        list: A list of Shapely LineString objects representing the 2D line segments.
+        MultiPolygon: A MultiPolygon containing the exterior boundaries of all disjoint footprint areas.
     """
     # Open the DXF file and access the modelspace
     doc = ezdxf.readfile(path_to_dxf)
@@ -42,7 +43,8 @@ def extract_lines_from_dxf(path_to_dxf, layer_name: str):
                 if geometry.dxftype() == "LINE":
                     start = to_2d(geometry.dxf.start)
                     end = to_2d(geometry.dxf.end)
-                    line_segments.append(LineString([start, end]))
+                    segment = LineString([start, end])
+                    line_segments.append(segment)
                 
                 # Process POLYLINE or LWPOLYLINE by splitting into individual segments
                 elif geometry.dxftype() in ["POLYLINE", "LWPOLYLINE"]:
@@ -67,28 +69,54 @@ def extract_lines_from_dxf(path_to_dxf, layer_name: str):
                         if sub_geom.dxftype() == "LINE":
                             start = to_2d(sub_geom.dxf.start)
                             end = to_2d(sub_geom.dxf.end)
-                            line_segments.append(LineString([start, end]))
+                            segment = LineString([start, end])
+                            line_segments.append(segment)
         except Exception as e:
             print(f"Skipping entity due to error: {e}")
             continue
 
-    return line_segments
+    # Apply the filter: ignore any segment starting or ending at (0,0) if its length exceeds origin_threshold.
+    if use_origin_filter:
+        filtered_segments = []
+        for seg in line_segments:
+            start, end = seg.coords[0], seg.coords[-1]
+            if ((start == (0, 0) or end == (0, 0)) and seg.length > origin_threshold):
+                continue
+            filtered_segments.append(seg)
+        line_segments = filtered_segments
+
+    # Merge all line segments and polygonize the network:
+    union_lines = unary_union(line_segments)
+    poly_list = list(polygonize(union_lines))
+    if not poly_list:
+        raise ValueError("No polygons formed from the extracted lines.")
+    
+    # Create a union of the polygons, and extract only the exteriors to form a footprint.
+    union_poly = unary_union(poly_list)
+    if union_poly.geom_type == "Polygon":
+        footprint_mp = MultiPolygon([Polygon(union_poly.exterior)])
+    elif union_poly.geom_type == "MultiPolygon":
+        footprint_mp = MultiPolygon([Polygon(poly.exterior) for poly in union_poly.geoms])
+    else:
+        footprint_mp = MultiPolygon([])
+    
+    return footprint_mp
 
 if __name__ == "__main__":
     # Specify your DXF file path and the target layer name.
     dxf_path = "./test_data/dxf/01-05-0501_EG.dxf"  # Update with your actual file path
-    layer_name = "A_01_TRAGWAND"  # Update with your actual layer name if different
+    layer_name = "A_01_TRAGWAND"  # Update if different
 
-    # Extract the 2D line segments from the DXF file.
-    lines = extract_lines_from_dxf(dxf_path, layer_name)
+    # Extract the footprint as a MultiPolygon
+    footprint = create_DXF_footprint_polygon(dxf_path, layer_name, use_origin_filter=True, origin_threshold=10.0)
 
-    # Plot the extracted 2D lines using Matplotlib.
+    # Plot the resulting footprint.
     plt.figure(figsize=(10, 10))
-    for line in lines:
-        x, y = line.xy
-        plt.plot(x, y, 'b-', linewidth=1)
+    for poly in footprint.geoms:
+        x, y = poly.exterior.xy
+        plt.plot(x, y, 'b-', linewidth=1.5)
     
-    plt.title("2D DXF Lines & Polyline Segments")
+    plt.title("DXF Footprint (Exteriors of Disjoint Polygons)")
     plt.xlabel("X")
     plt.ylabel("Y")
     plt.gca().set_aspect("equal", adjustable="box")

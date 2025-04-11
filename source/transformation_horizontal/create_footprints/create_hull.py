@@ -7,22 +7,6 @@ from shapely.ops import substring, unary_union
 from alphashape import alphashape
 
 
-# def create_convex_hull(points: np.array):
-#     # Create a MultiPoint object and compute its convex hull
-#     footprint_points = MultiPoint(points)
-#     footprint_convex_hull = footprint_points.convex_hull.boundary
-
-#     # Sample many points along the boundary for alignment
-#     footprint_convex_hull_densified = MultiPoint()
-#     for i in np.arange(0, footprint_convex_hull.length, 0.2):
-#         s = substring(footprint_convex_hull, i, i+0.2)
-#         footprint_convex_hull_densified = footprint_convex_hull_densified.union(s.boundary)
-
-#     # Create np array from MultiPoint object
-#     result = np.array([(point.x, point.y) for point in footprint_convex_hull_densified.geoms])
-#     return result
-
-
 def create_hull(points: np.array, alpha: float = 0.2) -> MultiPolygon:
     """
     Creates a concave hull from a set of points, always returned as a MultiPolygon.

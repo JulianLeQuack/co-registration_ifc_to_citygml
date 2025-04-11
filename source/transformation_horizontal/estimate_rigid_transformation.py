@@ -4,9 +4,8 @@ import itertools
 from shapely.geometry import Polygon, MultiPolygon
 
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import create_CityGML_footprint
-from source.transformation_horizontal.create_footprints.create_IFC_footprint import create_IFC_footprint
-from source.transformation_horizontal.create_footprints.create_hull import create_hull
 from source.transformation_horizontal.detect_features import detect_features, filter_features_by_edge_length
+from source.transformation_horizontal.create_footprints.create_DXF_footprint_polygon import create_DXF_footprint_polygon
 from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import create_IFC_footprint_polygon
 
 from source.transformation_horizontal.rigid_transformation import Rigid_Transformation
@@ -177,6 +176,9 @@ def main():
     # ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
     ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
 
+    dxf_path = "./test_data/dxf/01-05-0501_EG.dxf"
+    layer_name = "A_09_TRAGDECKE"  # Update if different
+
     citygml_path = "./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml"
     citygml_buildings = ['DEBY_LOD2_4959793', 'DEBY_LOD2_4959323', 'DEBY_LOD2_4959321',
                          'DEBY_LOD2_4959324', 'DEBY_LOD2_4959459', 'DEBY_LOD2_4959322',
@@ -184,21 +186,25 @@ def main():
     # citygml_buildings = ["DEBY_LOD2_4959457"]
 
     # Create the two example footprints.
-    polygon1 = create_IFC_footprint_polygon(ifc_path)
-    polygon2 = create_CityGML_footprint(citygml_path, citygml_buildings)
+    polygon_ifc = create_IFC_footprint_polygon(ifc_path)
+    polygon_citygml = create_CityGML_footprint(citygml_path, citygml_buildings)
+    polygon_dxf = create_DXF_footprint_polygon(dxf_path, layer_name)
 
     # Detect features (corners) using turning angles.
-    features1 = detect_features(polygon1, angle_threshold_deg=45)
-    features2 = detect_features(polygon2, angle_threshold_deg=45)
+    features_ifc = detect_features(polygon_ifc, angle_threshold_deg=45)
+    features_ifc = detect_features(polygon_citygml, angle_threshold_deg=45)
+    features_dxf = detect_features(polygon_dxf, angle_threshold_deg=45)
 
-    features1_filtered = filter_features_by_edge_length(features1, polygon1, min_edge_len=7.0)
-    features2_filtered = filter_features_by_edge_length(features2, polygon2, min_edge_len=7.0)
+    features_ifc_filtered = filter_features_by_edge_length(features_ifc, polygon_ifc, min_edge_len=7.0)
+    features_ifc_filtered = filter_features_by_edge_length(features_ifc, polygon_citygml, min_edge_len=7.0)
+    features_dxf_filtered = filter_features_by_edge_length(features_dxf, polygon_dxf, min_edge_len=7.0)
 
-    print(f"IFC Source: {len(features1)} features, filtered down to {len(features1_filtered)}")
-    print(f"CityGML Target: {len(features2)} features, filtered down to {len(features2_filtered)}")
+    print(f"IFC Source: {len(features_ifc)} features, filtered down to {len(features_ifc_filtered)}")
+    print(f"CityGML Target: {len(features_ifc)} features, filtered down to {len(features_ifc_filtered)}")
+    print(f"DXF Source: {len(features_dxf)} features, filtered down to {len(features_dxf_filtered)}")
     
     # Rough estimation.
-    rigid_transformation, inlier_pairs = estimate_rigid_transformation(features1_filtered, features2_filtered,
+    rigid_transformation, inlier_pairs = estimate_rigid_transformation(features_ifc_filtered, features_ifc_filtered,
                                                  distance_tol=1,
                                                  angle_tol_deg=45)
     if rigid_transformation is None:
@@ -220,12 +226,12 @@ def main():
     print(f"Rotation angle theta [radians]: {refined_transformation.theta}")
     print(f"Translation vector t [x, y]: {refined_transformation.t}")
     
-    # Apply the refined transformation to the entire multiPolygon footprint (polygon1).
+    # Apply the refined transformation to the entire multiPolygon footprint (polygon_ifc).
     # Build a new MultiPolygon with each polygon transformed.
     transformed_polys = []
-    if hasattr(polygon1, "geom_type"):
-        if polygon1.geom_type == "MultiPolygon":
-            for poly in polygon1.geoms:
+    if hasattr(polygon_ifc, "geom_type"):
+        if polygon_ifc.geom_type == "MultiPolygon":
+            for poly in polygon_ifc.geoms:
                 # Get full exterior
                 coords = np.array(poly.exterior.coords)
                 transformed_coords = refined_transformation.apply_transformation(coords)
@@ -233,40 +239,40 @@ def main():
                 if not np.allclose(transformed_coords[0], transformed_coords[-1]):
                     transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
                 transformed_polys.append(Polygon(transformed_coords))
-            polygon1_transformed = MultiPolygon(transformed_polys)
-        elif polygon1.geom_type == "Polygon":
-            coords = np.array(polygon1.exterior.coords)
+            polygon_ifc_transformed = MultiPolygon(transformed_polys)
+        elif polygon_ifc.geom_type == "Polygon":
+            coords = np.array(polygon_ifc.exterior.coords)
             transformed_coords = refined_transformation.apply_transformation(coords)
             if not np.allclose(transformed_coords[0], transformed_coords[-1]):
                 transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
-            polygon1_transformed = Polygon(transformed_coords)
+            polygon_ifc_transformed = Polygon(transformed_coords)
         else:
-            print("Unexpected geometry type for polygon1.")
+            print("Unexpected geometry type for polygon_ifc.")
             return
     else:
-        print("polygon1 is not a Shapely geometry.")
+        print("polygon_ifc is not a Shapely geometry.")
         return
 
-    # Similarly, ensure polygon2 is handled for plotting. Assume polygon2 is already a Shapely geometry.
+    # Similarly, ensure polygon_citygml is handled for plotting. Assume polygon_citygml is already a Shapely geometry.
     # Plot both footprints.
     plt.figure(figsize=(10, 10))
     
-    # Plot transformed IFC footprint (polygon1_transformed)
-    if polygon1_transformed.geom_type == "MultiPolygon":
-        for poly in polygon1_transformed.geoms:
+    # Plot transformed IFC footprint (polygon_ifc_transformed)
+    if polygon_ifc_transformed.geom_type == "MultiPolygon":
+        for poly in polygon_ifc_transformed.geoms:
             x, y = poly.exterior.xy
             plt.plot(x, y, 'r-', linewidth=2, label='Transformed IFC Footprint')
-    elif polygon1_transformed.geom_type == "Polygon":
-        x, y = polygon1_transformed.exterior.xy
+    elif polygon_ifc_transformed.geom_type == "Polygon":
+        x, y = polygon_ifc_transformed.exterior.xy
         plt.plot(x, y, 'r-', linewidth=2, label='Transformed IFC Footprint')
     
-    # Plot CityGML footprint (polygon2). If MultiPolygon, iterate.
-    if polygon2.geom_type == "MultiPolygon":
-        for poly in polygon2.geoms:
+    # Plot CityGML footprint (polygon_citygml). If MultiPolygon, iterate.
+    if polygon_citygml.geom_type == "MultiPolygon":
+        for poly in polygon_citygml.geoms:
             x, y = poly.exterior.xy
             plt.plot(x, y, 'b-', linewidth=2, label='CityGML Footprint')
-    elif polygon2.geom_type == "Polygon":
-        x, y = polygon2.exterior.xy
+    elif polygon_citygml.geom_type == "Polygon":
+        x, y = polygon_citygml.exterior.xy
         plt.plot(x, y, 'b-', linewidth=2, label='CityGML Footprint')
     
     plt.axis('equal')

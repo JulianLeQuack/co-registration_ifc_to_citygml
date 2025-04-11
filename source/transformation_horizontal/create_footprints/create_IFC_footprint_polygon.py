@@ -85,8 +85,8 @@ def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab"):
 
 def main():
     # Choose your IFC file path:
-    # ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
-    ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
+    ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
+    #ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
 
     footprint = create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab")
     if footprint is None:
