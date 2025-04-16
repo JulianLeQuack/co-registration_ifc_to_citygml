@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon as MplPolygon
 
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import create_CityGML_footprint
 from source.transformation_horizontal.create_footprints.create_DXF_footprint_polygon import create_DXF_footprint_polygon
 from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import create_IFC_footprint_polygon
+
 
 def compute_turning_angles(points: np.array) -> np.array:
     """
@@ -52,38 +54,148 @@ def detect_features(footprint, angle_threshold_deg=30) -> np.array:
 def filter_features_by_edge_length(features: np.array, footprint, min_edge_len=2.0) -> np.array:
     """
     Filters out detected features if both the incoming and outgoing edge lengths are below min_edge_len.
-    The rationale is that a 'corner' formed by very short edges is likely a minor recession detail.
-    
-    Parameters:
-        features (np.array): Array with shape (n,5) as produced by detect_features.
-        footprint: A MultiPolygon containing the original footprints.
-        min_edge_len (float): Minimum edge length (in same units as footprint) to consider a corner relevant.
-    
-    Returns:
-        np.array: Filtered features in the same shape, only including features where at least one edge length
-                  (incoming or outgoing) is greater than or equal to min_edge_len.
     """
     filtered_features = []
     for feature in features:
         poly_idx, vertex_idx, x, y, angle = feature
         poly = footprint.geoms[int(poly_idx)]
-        pts = np.array(poly.exterior.coords[:-1])  # use the same vertices used in detect_features
+        pts = np.array(poly.exterior.coords[:-1])
         n = len(pts)
-        # Ensure the vertex index is within bounds
         idx = int(vertex_idx) % n
         prev_idx = (idx - 1) % n
         next_idx = (idx + 1) % n
         edge_in = np.linalg.norm(pts[idx] - pts[prev_idx])
         edge_out = np.linalg.norm(pts[next_idx] - pts[idx])
-        # Retain the feature if at least one of the edges is longer than min_edge_len.
         if edge_in >= min_edge_len or edge_out >= min_edge_len:
             filtered_features.append(feature)
     return np.array(filtered_features).reshape(-1, 5) if filtered_features else np.empty((0, 5))
 
 
+def filter_features_by_triangle_area(features: np.array, footprint, min_area=0.5) -> np.array:
+    """
+    Filters out detected features based on the area of the triangle
+    formed by the feature vertex and its two neighbors (using all vertices).
+    """
+    filtered_features = []
+    for feature in features:
+        poly_idx, vertex_idx, x, y, angle = feature
+        poly = footprint.geoms[int(poly_idx)]
+        pts = np.array(poly.exterior.coords[:-1])
+        n = len(pts)
+        idx = int(vertex_idx) % n
+        prev_idx = (idx - 1) % n
+        next_idx = (idx + 1) % n
+        area = 0.5 * abs((pts[prev_idx][0] * (pts[idx][1] - pts[next_idx][1]) +
+                          pts[idx][0] * (pts[next_idx][1] - pts[prev_idx][1]) +
+                          pts[next_idx][0] * (pts[prev_idx][1] - pts[idx][1])))
+        if area >= min_area:
+            filtered_features.append(feature)
+    return np.array(filtered_features).reshape(-1, 5) if filtered_features else np.empty((0, 5))
+
+
+def filter_features_by_feature_triangle_area(features: np.array, min_area=0.5) -> np.array:
+    """
+    Filters features based on the area of triangles formed between adjacent detected features,
+    not the original polygon vertices.
+    
+    Args:
+        features: Array of detected features
+        min_area: Minimum triangle area threshold
+        
+    Returns:
+        Filtered features array
+    """
+    if features.size == 0:
+        return np.empty((0, 5))
+    
+    # Group features by polygon
+    grouped_features = group_features_by_polygon(features)
+    filtered_features = []
+    
+    # For each feature, compute triangle area using adjacent features in its group
+    for feature in features:
+        result = compute_triangle_area_from_features(feature, grouped_features)
+        if result is not None:
+            area, _, _, _ = result
+            if area >= min_area:
+                filtered_features.append(feature)
+    
+    return np.array(filtered_features).reshape(-1, 5) if filtered_features else np.empty((0, 5))
+
+
+def group_features_by_polygon(features: np.array) -> dict:
+    """
+    Build a dictionary mapping each polygon index to a list of its detected features,
+    sorted by the feature’s vertex index.
+    """
+    groups = {}
+    for f in features:
+        poly_idx = int(f[0])
+        if poly_idx not in groups:
+            groups[poly_idx] = []
+        groups[poly_idx].append(f)
+    for k in groups:
+        groups[k] = sorted(groups[k], key=lambda f: int(f[1]))
+    return groups
+
+def compute_triangle_area_from_features(feature, grouped_features):
+    """
+    Given a feature and the grouped features (only features detected),
+    compute the area of the triangle formed by the previous, current, 
+    and next detected features (cyclic within that polygon).
+    Returns a tuple (area, p, c, npnt) where p, c, npnt are the coordinates.
+    Returns None if there are fewer than 3 features.
+    """
+    poly_idx = int(feature[0])
+    group = grouped_features.get(poly_idx, [])
+    if len(group) < 3:
+        return None
+    f_idx = None
+    for i, f in enumerate(group):
+        if int(f[1]) == int(feature[1]):
+            f_idx = i
+            break
+    if f_idx is None:
+        return None
+    n = len(group)
+    prev_f = group[(f_idx - 1) % n]
+    next_f = group[(f_idx + 1) % n]
+    p = np.array([prev_f[2], prev_f[3]])
+    c = np.array([feature[2], feature[3]])
+    npnt = np.array([next_f[2], next_f[3]])
+    area = 0.5 * abs(p[0]*(c[1]-npnt[1]) + c[0]*(npnt[1]-p[1]) + npnt[0]*(p[1]-c[1]))
+    return area, p, c, npnt
+
+
+def plot_features(ax, footprint, detected_features, filtered_features, title, grouped_features=None):
+    # Plot each polygon.
+    if not footprint.is_empty:
+        for poly in footprint.geoms:
+            x, y = poly.exterior.xy
+            ax.plot(x, y, color='blue', alpha=0.5)
+    
+    # Plot all detected features.
+    if detected_features.size and detected_features.ndim == 2:
+        ax.scatter(detected_features[:, 2], detected_features[:, 3],
+                   color='mistyrose', label=f'All Detected: {len(detected_features)}')
+        for idx, feature in enumerate(detected_features):
+            ax.text(feature[2] + 0.2, feature[3] + 0.2, str(idx),
+                    fontsize=8, color='green', weight='bold')
+    
+    # Plot filtered features.
+    if filtered_features.size and filtered_features.ndim == 2:
+        ax.scatter(filtered_features[:, 2], filtered_features[:, 3],
+                   color='red', label=f'Filtered: {len(filtered_features)}')
+    
+    ax.set_title(title)
+    ax.set_xlabel("X Coordinate")
+    ax.set_ylabel("Y Coordinate")
+    ax.legend()
+    ax.set_aspect("equal", adjustable="box")
+
+
 if __name__ == "__main__":
-    # Either use a CityGML footprint or an IFC footprint. In this example, we use IFC.
-    # ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
+    # Load footprints.
     ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
     footprint_ifc = create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab")
 
@@ -97,66 +209,50 @@ if __name__ == "__main__":
 
     citygml_path = "./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml"
     citygml_buildings = ["DEBY_LOD2_4959457"]
-    footprint_citygml = create_CityGML_footprint(
-        citygml_path,
-        citygml_buildings,
-    )
+    footprint_citygml = create_CityGML_footprint(citygml_path, citygml_buildings)
     
-    # First, detect features based on turning angle.
+    # Detect features.
     features_ifc = detect_features(footprint_ifc, angle_threshold_deg=30)
     features_dxf = detect_features(footprint_dxf, angle_threshold_deg=30)
     features_citygml = detect_features(footprint_citygml, angle_threshold_deg=30)
     
-    # Now apply edge length filtering. For example, we consider features with both adjacent
-    # edges shorter than 2.0 to be minor and filter them out.
-    min_edge_len = 7  # adjust as needed (e.g., in meters)
+    # Filter features by edge length.
+    min_edge_len = 5
     filtered_features_ifc = filter_features_by_edge_length(features_ifc, footprint_ifc, min_edge_len=min_edge_len)
     filtered_features_dxf = filter_features_by_edge_length(features_dxf, footprint_dxf, min_edge_len=min_edge_len)
     filtered_features_citygml = filter_features_by_edge_length(features_citygml, footprint_citygml, min_edge_len=min_edge_len)
-
-    print(f"Detected Features in IFC: {features_ifc[0]}")
-    print(f"Filtered Features in IFC: {filtered_features_ifc[0]}")
-    print(f"Detected Features in DXF: {features_dxf[0]}")
-    print(f"Filtered Features in DXF: {filtered_features_dxf[0]}")
-    print(f"Detected Features in CityGML: {features_citygml[0]}")
-    print(f"Filtered Features in CityGML: {filtered_features_citygml[0]}")
     
-    # Create a figure with 3 subplots, one for each footprint type.
-    fig, axes = plt.subplots(1, 3, figsize=(21, 7))
+    # Filter features by triangle area using features (not vertices).
+    min_area = 10
+    filtered_features_ifc_area = filter_features_by_feature_triangle_area(features_ifc, min_area=min_area)
+    filtered_features_dxf_area = filter_features_by_feature_triangle_area(features_dxf, min_area=min_area)
+    filtered_features_citygml_area = filter_features_by_feature_triangle_area(features_citygml, min_area=min_area)
     
-    # Define a function to plot a footprint and features on an axis.
-    def plot_features(ax, footprint, detected_features, filtered_features, title):
-        # Plot each polygon in the footprint.
-        if not footprint.is_empty:
-            for poly in footprint.geoms:
-                x, y = poly.exterior.xy
-                ax.plot(x, y, color='blue', alpha=0.5)
-        
-        # Plot all detected features as light red.
-        if detected_features.size and detected_features.ndim == 2:
-            ax.scatter(detected_features[:, 2], detected_features[:, 3], 
-                       color='mistyrose', label=f'All Detected: {len(detected_features)}')
-        # Plot filtered features as strong red.
-        if filtered_features.size and filtered_features.ndim == 2:
-            ax.scatter(filtered_features[:, 2], filtered_features[:, 3], 
-                       color='red', label=f'Filtered: {len(filtered_features)}')
-        else:
-            ax.text(0.5, 0.5, "No robust features", transform=ax.transAxes, ha="center")
-            
-        ax.set_title(title)
-        ax.set_xlabel("X Coordinate")
-        ax.set_ylabel("Y Coordinate")
-        ax.legend()
-        ax.set_aspect("equal", adjustable="box")
+    # Filter features by feature triangle area.
+    filtered_features_ifc_feature_area = filter_features_by_feature_triangle_area(features_ifc, min_area=min_area)
+    filtered_features_dxf_feature_area = filter_features_by_feature_triangle_area(features_dxf, min_area=min_area)
+    filtered_features_citygml_feature_area = filter_features_by_feature_triangle_area(features_citygml, min_area=min_area)
     
-    # Plot for IFC footprint.
-    plot_features(axes[0], footprint_ifc, features_ifc, filtered_features_ifc, "IFC Footprint Features")
+    # Group features for triangle area computation (using all detected features).
+    grouped_features_ifc = group_features_by_polygon(features_ifc)
+    grouped_features_dxf = group_features_by_polygon(features_dxf)
+    grouped_features_citygml = group_features_by_polygon(features_citygml)
     
-    # Plot for DXF footprint.
-    plot_features(axes[1], footprint_dxf, features_dxf, filtered_features_dxf, "DXF Footprint Features")
+    # Create a 2x3 figure.
+    fig, axes = plt.subplots(2, 3, figsize=(21, 14))
     
-    # Plot for CityGML footprint.
-    plot_features(axes[2], footprint_citygml, features_citygml, filtered_features_citygml, "CityGML Footprint Features")
+    # Top row: Edge Length filtered features.
+    plot_features(axes[0, 0], footprint_ifc, features_ifc, filtered_features_ifc, "IFC: Filter by Edge Length")
+    plot_features(axes[0, 1], footprint_dxf, features_dxf, filtered_features_dxf, "DXF: Filter by Edge Length")
+    plot_features(axes[0, 2], footprint_citygml, features_citygml, filtered_features_citygml, "CityGML: Filter by Edge Length")
+    
+    # Bottom row: Triangle Area plots showing all spanned triangles from detected features.
+    plot_features(axes[1, 0], footprint_ifc, features_ifc, filtered_features_ifc_area,
+                  "IFC: Triangle Areas (All Triangles)", grouped_features_ifc)
+    plot_features(axes[1, 1], footprint_dxf, features_dxf, filtered_features_dxf_area,
+                  "DXF: Triangle Areas (All Triangles)", grouped_features_dxf)
+    plot_features(axes[1, 2], footprint_citygml, features_citygml, filtered_features_citygml_area,
+                  "CityGML: Triangle Areas (All Triangles)", grouped_features_citygml)
     
     plt.tight_layout()
     plt.show()
