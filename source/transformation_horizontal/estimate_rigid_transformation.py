@@ -4,7 +4,7 @@ import itertools
 from shapely.geometry import Polygon, MultiPolygon
 
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import create_CityGML_footprint
-from source.transformation_horizontal.detect_features import detect_features, filter_features_by_edge_length
+from source.transformation_horizontal.detect_features import detect_features, filter_features_by_edge_length, filter_features_by_feature_triangle_area
 from source.transformation_horizontal.create_footprints.create_DXF_footprint_polygon import create_DXF_footprint_polygon
 from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import create_IFC_footprint_polygon
 
@@ -207,9 +207,10 @@ def main():
     features_dxf = detect_features(polygon_dxf, angle_threshold_deg=45)
 
     # Filter features based on a minimum edge length.
-    features_ifc_filtered = filter_features_by_edge_length(features_ifc, polygon_ifc, min_edge_len=7.0)
-    features_citygml_filtered = filter_features_by_edge_length(features_citygml, polygon_citygml, min_edge_len=7.0)
-    features_dxf_filtered = filter_features_by_edge_length(features_dxf, polygon_dxf, min_edge_len=7.0)
+    min_area = 15
+    features_ifc_filtered = filter_features_by_feature_triangle_area(features_ifc, min_area=min_area)
+    features_citygml_filtered = filter_features_by_feature_triangle_area(features_citygml, min_area=min_area)
+    features_dxf_filtered = filter_features_by_feature_triangle_area(features_dxf, min_area=min_area)
 
     print(f"IFC Source: {len(features_ifc)} features, filtered down to {len(features_ifc_filtered)}")
     print(f"CityGML Target: {len(features_citygml)} features, filtered down to {len(features_citygml_filtered)}")

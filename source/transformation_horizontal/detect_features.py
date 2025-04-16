@@ -95,24 +95,26 @@ def filter_features_by_triangle_area(features: np.array, footprint, min_area=0.5
 
 def filter_features_by_feature_triangle_area(features: np.array, min_area=0.5) -> np.array:
     """
-    Filters features based on the area of triangles formed between adjacent detected features,
-    not the original polygon vertices.
+    Filters detected features based on the area of triangles formed between adjacent detected features.
+    This function uses only the features (the detected corners), not all original polygon vertices.
     
     Args:
-        features: Array of detected features
-        min_area: Minimum triangle area threshold
-        
+        features: Array of detected features, each in the form 
+                  [polygon_index, vertex_index, x_coordinate, y_coordinate, turning_angle_deg]
+        min_area: Minimum triangle area threshold. Only features whose spanned triangle area
+                  (with its adjacent features in the sorted order) is at least min_area are retained.
+    
     Returns:
-        Filtered features array
+        A numpy array of filtered features (in the same 5-column format) or an empty array if none pass.
     """
     if features.size == 0:
         return np.empty((0, 5))
     
-    # Group features by polygon
+    # Group features by polygon.
     grouped_features = group_features_by_polygon(features)
     filtered_features = []
     
-    # For each feature, compute triangle area using adjacent features in its group
+    # For each feature, compute the triangle area using its adjacent features in the grouped order.
     for feature in features:
         result = compute_triangle_area_from_features(feature, grouped_features)
         if result is not None:
@@ -127,6 +129,8 @@ def group_features_by_polygon(features: np.array) -> dict:
     """
     Build a dictionary mapping each polygon index to a list of its detected features,
     sorted by the feature’s vertex index.
+    Each feature is assumed to be in the form:
+       [polygon_index, vertex_index, x, y, turning_angle_deg]
     """
     groups = {}
     for f in features:
@@ -143,8 +147,13 @@ def compute_triangle_area_from_features(feature, grouped_features):
     Given a feature and the grouped features (only features detected),
     compute the area of the triangle formed by the previous, current, 
     and next detected features (cyclic within that polygon).
-    Returns a tuple (area, p, c, npnt) where p, c, npnt are the coordinates.
-    Returns None if there are fewer than 3 features.
+    
+    Returns:
+        A tuple (area, p, c, npnt) where:
+          - area is the computed triangle area,
+          - p, c, npnt are numpy arrays of the coordinates of the previous, current,
+            and next features respectively.
+        Returns None if there are fewer than 3 features in the group.
     """
     poly_idx = int(feature[0])
     group = grouped_features.get(poly_idx, [])
@@ -163,7 +172,8 @@ def compute_triangle_area_from_features(feature, grouped_features):
     p = np.array([prev_f[2], prev_f[3]])
     c = np.array([feature[2], feature[3]])
     npnt = np.array([next_f[2], next_f[3]])
-    area = 0.5 * abs(p[0]*(c[1]-npnt[1]) + c[0]*(npnt[1]-p[1]) + npnt[0]*(p[1]-c[1]))
+    # Compute area using the standard triangle area formula.
+    area = 0.5 * abs(p[0]*(c[1] - npnt[1]) + c[0]*(npnt[1] - p[1]) + npnt[0]*(p[1] - c[1]))
     return area, p, c, npnt
 
 
