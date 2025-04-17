@@ -42,27 +42,28 @@ ifc_features_filtered = filter_features_by_feature_triangle_area(features=ifc_fe
 dxf_features_filtered = filter_features_by_feature_triangle_area(features=dxf_features, min_area=15)
 citygml_features_filtered = filter_features_by_feature_triangle_area(features=citygml_features, min_area=15)
 
-# Estimate Rigid Transformation for DXF to CityGML
-print("Estimating Rigid Transformation for DXF Footprint...")
-rough_transformation_dxf_to_citygml, inlier_pairs_dxf_to_citygml = estimate_rigid_transformation(source_features=dxf_features_filtered, target_features=citygml_features_filtered, distance_tol=1, angle_tol_deg=45)
-refined_transformation_dxf_to_citygml = refine_rigid_transformation(inlier_pairs=inlier_pairs_dxf_to_citygml)
-print(f"Transformation for DXF to CityGML: {refined_transformation_dxf_to_citygml}")
-
 # Estimate Rigid Transformation for IFC to CityGML
 print("Estimating Rigid Transformation for IFC Footprint...")
 rough_transformation_ifc_to_citygml, inlier_pairs_ifc_to_citygml = estimate_rigid_transformation(source_features=ifc_features_filtered, target_features=citygml_features_filtered, distance_tol=1, angle_tol_deg=45)
 refined_transformation_ifc_to_citygml = refine_rigid_transformation(inlier_pairs=inlier_pairs_ifc_to_citygml)
 print(f"Transformation for IFC to CityGML: {refined_transformation_ifc_to_citygml}")
 
+# Transformation of IFC footprint to CityGML footprint and Feature Extraction
+print("Transforming IFC Footprint to CityGML Footprint...")
+ifc_footprint_transformed = refined_transformation_ifc_to_citygml.transform_shapely_polygon(ifc_footprint)
+ifc_features_transformed = detect_features(footprint=ifc_footprint_transformed, angle_threshold_deg=30)
+ifc_features_transformed_filtered = filter_features_by_feature_triangle_area(features=ifc_features_transformed, min_area=15)
+
+# Estimate Rigid Transformation for DXF to IFC
+print("Estimating Rigid Transformation for DXF Footprint...")
+rough_transformation_dxf_to_ifc, inlier_pairs_dxf_to_ifc = estimate_rigid_transformation(source_features=dxf_features_filtered, target_features=ifc_features_transformed_filtered, distance_tol=1, angle_tol_deg=45)
+refined_transformation_dxf_to_ifc = refine_rigid_transformation(inlier_pairs=inlier_pairs_dxf_to_ifc)
+print(f"Transformation for DXF to CityGML: {refined_transformation_dxf_to_ifc}")
+
 # Save the transformations to JSON files
 print("Saving Transformations to JSON...")
-refined_transformation_dxf_to_citygml.export_to_json(data_path + "transformation_dxf_to_citygml.json")
+refined_transformation_dxf_to_ifc.export_to_json(data_path + "transformation_dxf_to_citygml.json")
 refined_transformation_ifc_to_citygml.export_to_json(data_path + "transformation_ifc_to_citygml.json")
-
-# Apply the transformations to the DXF and IFC footprints
-print("Applying Transformations to Footprints...")
-transformed_dxf_footprint = refined_transformation_dxf_to_citygml.transform_shapely_polygon(dxf_footprint)
-transformed_ifc_footprint = refined_transformation_ifc_to_citygml.transform_shapely_polygon(ifc_footprint)
 
 # Apply the transformations to the DXF and IFC files
 print("Applying Transformations to DXF and IFC files...")
