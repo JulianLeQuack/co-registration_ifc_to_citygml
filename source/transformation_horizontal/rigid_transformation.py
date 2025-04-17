@@ -11,7 +11,7 @@ class Rigid_Transformation:
         self.theta = theta
 
     def __str__(self):
-        return f"Translation (x,y): {self.t}\nTheta (radians): {self.theta}"
+        return f"Translation (x,y): {self.t}, Theta (radians): {self.theta}"
         
 
     def translation_vector(self):

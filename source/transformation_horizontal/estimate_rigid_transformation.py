@@ -176,15 +176,15 @@ def main():
     polygon_dxf = create_DXF_footprint_polygon(dxf_path, layer_name)
 
     # Detect features (corners) using turning angles.
-    features_ifc = detect_features(polygon_ifc, angle_threshold_deg=45)
-    features_citygml = detect_features(polygon_citygml, angle_threshold_deg=45)
-    features_dxf = detect_features(polygon_dxf, angle_threshold_deg=45)
+    features_ifc = detect_features(polygon_ifc, angle_threshold_deg=30)
+    features_citygml = detect_features(polygon_citygml, angle_threshold_deg=30)
+    features_dxf = detect_features(polygon_dxf, angle_threshold_deg=30)
 
     # Filter features based on a minimum edge length.
-    min_area = 15
+    min_area = 10
     features_ifc_filtered = filter_features_by_feature_triangle_area(features_ifc, min_area=min_area)
     features_citygml_filtered = filter_features_by_feature_triangle_area(features_citygml, min_area=min_area)
-    features_dxf_filtered = filter_features_by_feature_triangle_area(features_dxf, min_area=min_area)
+    features_dxf_filtered = filter_features_by_feature_triangle_area(features_dxf, min_area=5) # need more detail for correct orientation
 
     print(f"IFC Source: {len(features_ifc)} features, filtered down to {len(features_ifc_filtered)}")
     print(f"CityGML Target: {len(features_citygml)} features, filtered down to {len(features_citygml_filtered)}")
@@ -209,25 +209,35 @@ def main():
     # Apply the refined transformation to the IFC footprint.
     polygon_ifc_transformed = refined_transformation_ifc.transform_shapely_polygon(polygon_ifc)
     
-    # --- Estimate and refine transformation for DXF -> CityGML ---
-    print("\nEstimating transformation for DXF to CityGML...")
+    # --- Register DXF to the transformed IFC instead of CityGML ---
+    print("\nEstimating transformation for DXF to transformed IFC...")
+    # 1. detect features on the transformed IFC
+    features_ifc_transformed = detect_features(polygon_ifc_transformed, angle_threshold_deg=30)
+    features_ifc_transformed_filtered = filter_features_by_feature_triangle_area(
+        features_ifc_transformed, min_area=min_area
+    )
+    # 2. estimate & refine DXF -> transformed IFC
     rigid_transformation_dxf, inlier_pairs_dxf = estimate_rigid_transformation(
-        features_dxf_filtered, features_citygml_filtered, distance_tol=1, angle_tol_deg=45)
+        features_dxf_filtered, features_ifc_transformed_filtered, distance_tol=1, angle_tol_deg=45
+    )
     if rigid_transformation_dxf is None:
         print("Estimation for DXF failed to find a valid transformation.")
         return
-    print(f"DXF Initial Transformation: theta = {rigid_transformation_dxf.theta}, t = {rigid_transformation_dxf.t}")
-    print(f"Number of inlier pairs (DXF): {len(inlier_pairs_dxf)}")
-    
+
+    # Print initial DXF→IFC transformation and inlier count
+    print(f"\nDXF Initial Transformation: theta = {rigid_transformation_dxf.theta}, t = {rigid_transformation_dxf.t}")
+    print(f"Number of inlier pairs (DXF to IFC): {len(inlier_pairs_dxf)}")
+
     refined_transformation_dxf = refine_rigid_transformation(inlier_pairs_dxf)
     if refined_transformation_dxf is None:
         print("Refinement for DXF failed.")
         return
+
+    # Print refined DXF→IFC transformation
     print(f"Refined DXF Transformation: theta = {refined_transformation_dxf.theta}, t = {refined_transformation_dxf.t}")
-    
-    # Apply the refined transformation to the DXF footprint.
+
     polygon_dxf_transformed = refined_transformation_dxf.transform_shapely_polygon(polygon_dxf)
-    
+
     # --- Plot all three footprints (aligned) ---
     plt.figure(figsize=(10, 10))
     
