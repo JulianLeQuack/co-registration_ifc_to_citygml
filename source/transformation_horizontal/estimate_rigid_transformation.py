@@ -39,12 +39,12 @@ def estimate_transformation_from_2pairs(source1, source2, target1, target2) -> R
     return Rigid_Transformation(t=t, theta=theta)
 
 
-def estimate_rigid_transformation(features1, features2, distance_tol=5.0, angle_tol_deg=10.0):
+def estimate_rigid_transformation(source_features, target_features, distance_tol=5.0, angle_tol_deg=10.0):
     """
-    Use all possible feature combinations to estimate the best rigid transformation that aligns features1 to features2.
+    Use all possible feature combinations to estimate the best rigid transformation that aligns source_features to target_features.
     
     Parameters:
-      features1, features2: numpy arrays with shape (n,5) where each row is
+      source_features, target_features: numpy arrays with shape (n,5) where each row is
                            [poly_index, vertex_index, x_coordinate, y_coordinate, turning_angle_deg]
       distance_tol: Maximum allowed distance for a transformed feature to be considered an inlier.
       angle_tol_deg: Maximum allowed difference in turning angle (degrees) for a candidate match.
@@ -58,25 +58,25 @@ def estimate_rigid_transformation(features1, features2, distance_tol=5.0, angle_
     best_inliers = []
     angle_tol = np.radians(angle_tol_deg)
     
-    if len(features1) < 2 or len(features2) < 2:
+    if len(source_features) < 2 or len(target_features) < 2:
         print("Not enough features for estimation.")
         return None, []
     
     # Loop over all pairs of features from the first set.
-    for f1_1, f1_2 in itertools.combinations(features1, 2):
+    for f1_1, f1_2 in itertools.combinations(source_features, 2):
         # Use columns 2 and 3 as point coordinates.
         p1, p2 = np.array(f1_1[2:4]), np.array(f1_2[2:4])
         # Use column 4 as turning angle in degrees (converted to radians).
         a1, a2 = np.radians(f1_1[4]), np.radians(f1_2[4])
         
-        # Find candidate matches in features2 based on similar turning angles.
-        candidates1 = [f for f in features2 if abs(np.radians(f[4]) - a1) < angle_tol]
-        candidates2 = [f for f in features2 if abs(np.radians(f[4]) - a2) < angle_tol]
+        # Find candidate matches in target_features based on similar turning angles.
+        candidates1 = [f for f in target_features if abs(np.radians(f[4]) - a1) < angle_tol]
+        candidates2 = [f for f in target_features if abs(np.radians(f[4]) - a2) < angle_tol]
         
         if not candidates1 or not candidates2:
             continue
         
-        # Loop over candidate pairs from features2.
+        # Loop over candidate pairs from target_features.
         for f2_1 in candidates1:
             for f2_2 in candidates2:
                 if np.array_equal(f2_1, f2_2):
@@ -90,14 +90,14 @@ def estimate_rigid_transformation(features1, features2, distance_tol=5.0, angle_
                 # Estimate the candidate transformation using the two point pairs.
                 candidate_transformation = estimate_transformation_from_2pairs(p1, p2, q1, q2)
                 
-                # Evaluate inliers: transform each feature in features1 and look for a corresponding match in features2.
+                # Evaluate inliers: transform each feature in source_features and look for a corresponding match in target_features.
                 inliers = []
-                for f in features1:
+                for f in source_features:
                     pt = np.array(f[2:4])
                     ang = f[4]  # in degrees
                     pt_trans = candidate_transformation.rotation_matrix() @ pt + candidate_transformation.translation_vector()
                     best_match = None
-                    for g in features2:
+                    for g in target_features:
                         pt2 = np.array(g[2:4])
                         ang2 = g[4]
                         if (np.linalg.norm(pt_trans - pt2) < distance_tol and 
@@ -190,11 +190,14 @@ def transform_shapely_polygon(polygon, transformation):
 
 def main():
     # Define file paths and other settings.
-    ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
-    dxf_path = "./test_data/dxf/01-05-0501_EG.dxf"
+    # ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
+    ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
+    # dxf_path = "./test_data/dxf/01-05-0501_EG.dxf"
+    dxf_path = "./test_data/dxf/01-05-0507_EG.1.dxf"
     layer_name = "A_09_TRAGDECKE"  # Update if different
     citygml_path = "./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml"
-    citygml_buildings = ["DEBY_LOD2_4959457"]
+    # citygml_buildings = ["DEBY_LOD2_4959457"]
+    citygml_buildings = ['DEBY_LOD2_4959793', 'DEBY_LOD2_4959323', 'DEBY_LOD2_4959321', 'DEBY_LOD2_4959324', 'DEBY_LOD2_4959459', 'DEBY_LOD2_4959322', 'DEBY_LOD2_4959458']
 
     # Create footprints.
     polygon_ifc = create_IFC_footprint_polygon(ifc_path)
