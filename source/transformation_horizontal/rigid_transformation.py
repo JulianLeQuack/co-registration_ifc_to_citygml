@@ -1,5 +1,6 @@
 import numpy as np
 import json
+from shapely.geometry import Polygon, MultiPolygon
 
 class Rigid_Transformation:
 
@@ -8,7 +9,7 @@ class Rigid_Transformation:
         self.theta = theta
 
     def __str__(self):
-        return f"Translation (x,y): {self.x, self.y}\nTheta (radians): {self.theta}"
+        return f"Translation (x,y): {self.t}\nTheta (radians): {self.theta}"
         
 
     def translation_vector(self):
@@ -32,6 +33,35 @@ class Rigid_Transformation:
         t = self.translation_vector()
         transformed_points = (R @ points.T).T + t
         return transformed_points
+    
+    def transform_shapely_polygon(self, polygon):
+        """
+        Apply a given transformation to a Shapely Polygon or MultiPolygon and return the transformed geometry.
+        """
+        if hasattr(polygon, "geom_type"):
+            if polygon.geom_type == "MultiPolygon":
+                transformed_polys = []
+                for poly in polygon.geoms:
+                    coords = np.array(poly.exterior.coords)
+                    transformed_coords = self.apply_transformation(coords)
+                    # Ensure closure.
+                    if not np.allclose(transformed_coords[0], transformed_coords[-1]):
+                        transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
+                    transformed_polys.append(Polygon(transformed_coords))
+                return MultiPolygon(transformed_polys)
+            elif polygon.geom_type == "Polygon":
+                coords = np.array(polygon.exterior.coords)
+                transformed_coords = self.apply_transformation(coords)
+                if not np.allclose(transformed_coords[0], transformed_coords[-1]):
+                    transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
+                return Polygon(transformed_coords)
+            else:
+                print("Unexpected geometry type.")
+                return None
+        else:
+            print("Input is not a Shapely geometry.")
+            return None
+
 
     
     @classmethod
@@ -54,8 +84,7 @@ class Rigid_Transformation:
 
     def export_to_json(self, file_path):
         data = {
-            "x": self.x,
-            "y": self.y,
+            "t": self.t.tolist(), #Convert numpy array to list for JSON serialization
             "theta": self.theta,
         }
         with open(file_path, "w") as file:

@@ -4,19 +4,19 @@ import xml.etree.ElementTree as ET
 
 from shapely.geometry import Polygon, MultiPolygon
 
-def create_CityGML_footprint(path_to_CityGML, building_ids: list) -> MultiPolygon:
+def create_CityGML_footprint(citygml_path, building_ids: list) -> MultiPolygon:
     """
     Parses a CityGML file and returns a MultiPolygon.
     If building_ids (a list of strings) is provided, only footprints for those buildings
     (matched via the 'gml:id' attribute of bldg:Building elements) are returned.
     Otherwise, footprints from all ground surfaces in the file are processed.
-    :param path_to_CityGML: Path to the CityGML file
+    :param citygml_path: Path to the CityGML file
     :param building_ids: List of building IDs to process
     :return: MultiPolygon of the building footprints
     """
     try:
         # Parse the CityGML file
-        tree = ET.parse(path_to_CityGML)
+        tree = ET.parse(citygml_path)
         root = tree.getroot()
 
         # Define namespaces
@@ -80,7 +80,7 @@ def create_CityGML_footprint(path_to_CityGML, building_ids: list) -> MultiPolygo
         return MultiPolygon(polygons) if polygons else MultiPolygon([])
 
     except ET.ParseError:
-        print(f"Error parsing CityGML file: {path_to_CityGML}")
+        print(f"Error parsing CityGML file: {citygml_path}")
         return MultiPolygon([])
     except ValueError as e:
         print(e)

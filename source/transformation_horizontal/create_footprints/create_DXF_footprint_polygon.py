@@ -9,7 +9,7 @@ def to_2d(point):
     """
     return (point[0], point[1])
 
-def create_DXF_footprint_polygon(path_to_dxf, layer_name: str, use_origin_filter: bool = True, origin_threshold: float = 10.0):
+def create_DXF_footprint_polygon(dxf_path, layer_name: str, use_origin_filter: bool = False, origin_threshold: float = 10.0):
     """
     Extracts individual 2D line segments from a DXF file on the specified layer,
     applies a filter to ignore any segment starting or ending at (0,0) that are longer than origin_threshold,
@@ -18,16 +18,16 @@ def create_DXF_footprint_polygon(path_to_dxf, layer_name: str, use_origin_filter
     All coordinates are converted to 2D (ignoring Z).
     
     Parameters:
-        path_to_dxf (str): Path to the DXF file.
+        dxf_path (str): Path to the DXF file.
         layer_name (str): Name of the DXF layer to query.
-        use_origin_filter (bool): Whether to ignore lines with start or end at (0,0) that exceed the threshold.
+        use_origin_filter (bool): Whether to ignore lines with start or end at (0,0) that exceed the threshold. These lines can appear in DXF files that use blocks.
         origin_threshold (float): Length threshold (in meters) for ignoring lines.
     
     Returns:
         MultiPolygon: A MultiPolygon containing the exterior boundaries of all disjoint footprint areas.
     """
     # Open the DXF file and access the modelspace
-    doc = ezdxf.readfile(path_to_dxf)
+    doc = ezdxf.readfile(dxf_path)
     msp = doc.modelspace()
 
     # Query for all entities in the specified layer.

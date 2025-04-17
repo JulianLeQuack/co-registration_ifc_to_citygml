@@ -159,35 +159,6 @@ def refine_rigid_transformation(inlier_pairs):
     return refined_transformation
 
 
-def transform_shapely_polygon(polygon, transformation):
-    """
-    Apply a given transformation to a Shapely Polygon or MultiPolygon and return the transformed geometry.
-    """
-    if hasattr(polygon, "geom_type"):
-        if polygon.geom_type == "MultiPolygon":
-            transformed_polys = []
-            for poly in polygon.geoms:
-                coords = np.array(poly.exterior.coords)
-                transformed_coords = transformation.apply_transformation(coords)
-                # Ensure closure.
-                if not np.allclose(transformed_coords[0], transformed_coords[-1]):
-                    transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
-                transformed_polys.append(Polygon(transformed_coords))
-            return MultiPolygon(transformed_polys)
-        elif polygon.geom_type == "Polygon":
-            coords = np.array(polygon.exterior.coords)
-            transformed_coords = transformation.apply_transformation(coords)
-            if not np.allclose(transformed_coords[0], transformed_coords[-1]):
-                transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
-            return Polygon(transformed_coords)
-        else:
-            print("Unexpected geometry type.")
-            return None
-    else:
-        print("Input is not a Shapely geometry.")
-        return None
-
-
 def main():
     # Define file paths and other settings.
     # ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
@@ -236,7 +207,7 @@ def main():
     print(f"Refined IFC Transformation: theta = {refined_transformation_ifc.theta}, t = {refined_transformation_ifc.t}")
     
     # Apply the refined transformation to the IFC footprint.
-    polygon_ifc_transformed = transform_shapely_polygon(polygon_ifc, refined_transformation_ifc)
+    polygon_ifc_transformed = refined_transformation_ifc.transform_shapely_polygon(polygon_ifc)
     
     # --- Estimate and refine transformation for DXF -> CityGML ---
     print("\nEstimating transformation for DXF to CityGML...")
@@ -255,7 +226,7 @@ def main():
     print(f"Refined DXF Transformation: theta = {refined_transformation_dxf.theta}, t = {refined_transformation_dxf.t}")
     
     # Apply the refined transformation to the DXF footprint.
-    polygon_dxf_transformed = transform_shapely_polygon(polygon_dxf, refined_transformation_dxf)
+    polygon_dxf_transformed = refined_transformation_dxf.transform_shapely_polygon(polygon_dxf)
     
     # --- Plot all three footprints (aligned) ---
     plt.figure(figsize=(10, 10))
