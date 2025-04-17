@@ -1,6 +1,8 @@
 import numpy as np
 import json
 from shapely.geometry import Polygon, MultiPolygon
+import ifcopenshell
+import ifcpatch
 
 class Rigid_Transformation:
 
@@ -24,7 +26,7 @@ class Rigid_Transformation:
         return rotation_matrix
     
 
-    def apply_transformation(self, points):
+    def transform_points(self, points):
         """
         Applies a 2D rigid transformation to a set of points.
         """
@@ -43,7 +45,7 @@ class Rigid_Transformation:
                 transformed_polys = []
                 for poly in polygon.geoms:
                     coords = np.array(poly.exterior.coords)
-                    transformed_coords = self.apply_transformation(coords)
+                    transformed_coords = self.transform_points(coords)
                     # Ensure closure.
                     if not np.allclose(transformed_coords[0], transformed_coords[-1]):
                         transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
@@ -51,7 +53,7 @@ class Rigid_Transformation:
                 return MultiPolygon(transformed_polys)
             elif polygon.geom_type == "Polygon":
                 coords = np.array(polygon.exterior.coords)
-                transformed_coords = self.apply_transformation(coords)
+                transformed_coords = self.transform_points(coords)
                 if not np.allclose(transformed_coords[0], transformed_coords[-1]):
                     transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
                 return Polygon(transformed_coords)
@@ -61,6 +63,31 @@ class Rigid_Transformation:
         else:
             print("Input is not a Shapely geometry.")
             return None
+        
+
+    def transform_ifc(self, input_ifc_path, output_ifc_path):
+        """
+        Apply the transformation to an IFC file and save the transformed model.
+        """
+        # Load the IFC model
+        model = ifcopenshell.open(input_ifc_path)
+        
+        # Prepare arguments for ifcpatch
+        x, y = self.t
+        z = 0
+        theta_rad = self.theta
+        az = np.degrees(theta_rad)
+
+        # Execute the patch
+        patched = ifcpatch.execute({
+            "input": input_ifc_path,
+            "file": model,
+            "recipe": "OffsetObjectPlacements",
+            "arguments": [x, y, z, True, 0, 0, az]
+        })
+        # Write out the transformed IFC model
+        ifcpatch.write(patched, output_ifc_path)
+        print(f"Transformed IFC model saved to: {output_ifc_path}")
 
 
     
@@ -89,3 +116,19 @@ class Rigid_Transformation:
         }
         with open(file_path, "w") as file:
             json.dump(data, file, indent=4) #indent=4 makes the json file more readable.
+
+
+if __name__ == "__main__":
+    transformation_dict = {
+    "t": [
+        690952.9369419415,
+        5335977.822957996
+    ],
+    "theta": 1.1958801418366802
+    }
+
+    transformation = Rigid_Transformation(t=transformation_dict["t"], theta=transformation_dict["theta"])
+
+    ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
+
+    transformation.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=ifc_path + "transformed.ifc")

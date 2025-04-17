@@ -17,7 +17,7 @@ ifc_path = "./demo/data/3.002 01-05-0501_EG.ifc"
 dxf_path = "./demo/data/01-05-0501_EG.dxf"
 dxf_path_point_symmetric = "./demo/data/01-05-0507_EG.1.dxf"
 citygml_path = "./demo/data/DEBY_LOD2_4959457.gml"
-output_path = "./demo/data/"
+data_path = "./demo/data/"
 
 # Model footprint settings
 citygml_building_ids = ["DEBY_LOD2_4959457"]
@@ -56,11 +56,14 @@ print(f"Transformation for IFC to CityGML: {refined_transformation_ifc_to_citygm
 
 # Save the transformations to JSON files
 print("Saving Transformations to JSON...")
-refined_transformation_dxf_to_citygml.export_to_json(output_path + "transformation_dxf_to_citygml.json")
-refined_transformation_ifc_to_citygml.export_to_json(output_path + "transformation_ifc_to_citygml.json")
+refined_transformation_dxf_to_citygml.export_to_json(data_path + "transformation_dxf_to_citygml.json")
+refined_transformation_ifc_to_citygml.export_to_json(data_path + "transformation_ifc_to_citygml.json")
 
 # Apply the transformations to the DXF and IFC footprints
 print("Applying Transformations to Footprints...")
 transformed_dxf_footprint = refined_transformation_dxf_to_citygml.transform_shapely_polygon(dxf_footprint)
 transformed_ifc_footprint = refined_transformation_ifc_to_citygml.transform_shapely_polygon(ifc_footprint)
 
+# Apply the transformations to the DXF and IFC files
+print("Applying Transformations to DXF and IFC files...")
+transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=data_path + "transformed_ifc.ifc")
