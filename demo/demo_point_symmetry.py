@@ -29,6 +29,9 @@ target_features = detect_features(target_mp, angle_threshold_deg=30)
 source_features_filtered = filter_features_by_feature_triangle_area(source_features, min_area=0.1)
 target_features_filtered = filter_features_by_feature_triangle_area(target_features, min_area=0.1)
 
+print(f"Point Symmetry Check Source: {check_point_symmetry(source_features_filtered)}")
+print(f"Point Symmetry Check Target: {check_point_symmetry(target_features_filtered)}")
+
 print(f"Source features: {len(source_features_filtered)}")
 print(f"Target features: {len(target_features_filtered)}")
 
