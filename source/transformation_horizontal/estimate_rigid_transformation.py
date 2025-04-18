@@ -181,10 +181,10 @@ def main():
     features_dxf = detect_features(polygon_dxf, angle_threshold_deg=30)
 
     # Filter features based on a minimum edge length.
-    min_area = 10
+    min_area = 5
     features_ifc_filtered = filter_features_by_feature_triangle_area(features_ifc, min_area=min_area)
     features_citygml_filtered = filter_features_by_feature_triangle_area(features_citygml, min_area=min_area)
-    features_dxf_filtered = filter_features_by_feature_triangle_area(features_dxf, min_area=5) # need more detail for correct orientation
+    features_dxf_filtered = filter_features_by_feature_triangle_area(features_dxf, min_area=min_area) # need more detail for correct orientation
 
     print(f"IFC Source: {len(features_ifc)} features, filtered down to {len(features_ifc_filtered)}")
     print(f"CityGML Target: {len(features_citygml)} features, filtered down to {len(features_citygml_filtered)}")

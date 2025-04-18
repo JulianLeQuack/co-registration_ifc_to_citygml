@@ -209,7 +209,7 @@ if __name__ == "__main__":
     ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
     footprint_ifc = create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab")
 
-    dxf_path = "./test_data/dxf/01-05-0501_EG.dxf"
+    dxf_path = "./test_data/dxf/01-05-0507_EG.1.dxf"
     footprint_dxf = create_DXF_footprint_polygon(
         dxf_path,
         layer_name="A_09_TRAGDECKE",
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     filtered_features_citygml = filter_features_by_edge_length(features_citygml, footprint_citygml, min_edge_len=min_edge_len)
     
     # Filter features by triangle area using features (not vertices).
-    min_area = 15
+    min_area = 5
     filtered_features_ifc_area = filter_features_by_feature_triangle_area(features_ifc, min_area=min_area)
     filtered_features_dxf_area = filter_features_by_feature_triangle_area(features_dxf, min_area=min_area)
     filtered_features_citygml_area = filter_features_by_feature_triangle_area(features_citygml, min_area=min_area)
