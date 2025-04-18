@@ -1,6 +1,7 @@
 import numpy as np
 import json
 from shapely.geometry import Polygon, MultiPolygon
+from shapely.affinity import translate, rotate
 import ifcopenshell
 import ifcpatch
 
@@ -25,6 +26,16 @@ class Rigid_Transformation:
         ])
         return rotation_matrix
     
+    def transform(self, input):
+        """
+        Applies a 2D rigid transformation to a given input.
+        First rotates around origin, then translates.
+        """
+        # First rotate around the origin
+        output = rotate(input, angle=np.degrees(self.theta), origin=(0, 0))
+        # Then translate
+        output = translate(output, xoff=self.t[0], yoff=self.t[1])
+        return output
 
     def transform_points(self, points):
         """

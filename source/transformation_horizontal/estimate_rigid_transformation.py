@@ -39,7 +39,8 @@ def estimate_transformation_from_2pairs(source1, source2, target1, target2) -> R
     return Rigid_Transformation(t=t, theta=theta)
 
 
-def estimate_rigid_transformation(source_features, target_features, distance_tol=5.0, angle_tol_deg=10.0):
+def estimate_rigid_transformation(source_features, target_features, distance_tol=5.0, angle_tol_deg=10.0, 
+                                 restricted=False, fixed_source_idx=None, fixed_target_idx=None):
     """
     Use all possible feature combinations to estimate the best rigid transformation that aligns source_features to target_features.
     
@@ -48,6 +49,9 @@ def estimate_rigid_transformation(source_features, target_features, distance_tol
                            [poly_index, vertex_index, x_coordinate, y_coordinate, turning_angle_deg]
       distance_tol: Maximum allowed distance for a transformed feature to be considered an inlier.
       angle_tol_deg: Maximum allowed difference in turning angle (degrees) for a candidate match.
+      restricted: Whether to restrict the search to transformations that include a fixed feature match
+      fixed_source_idx: Index of the fixed feature in source_features to be matched
+      fixed_target_idx: Index of the fixed feature in target_features to be matched
       
     Returns:
       best_transformation: A Rigid_Transformation object representing the best transformation.
@@ -62,39 +66,43 @@ def estimate_rigid_transformation(source_features, target_features, distance_tol
         print("Not enough features for estimation.")
         return None, []
     
-    # Loop over all pairs of features from the first set.
-    for f1_1, f1_2 in itertools.combinations(source_features, 2):
-        # Use columns 2 and 3 as point coordinates.
-        p1, p2 = np.array(f1_1[2:4]), np.array(f1_2[2:4])
-        # Use column 4 as turning angle in degrees (converted to radians).
-        a1, a2 = np.radians(f1_1[4]), np.radians(f1_2[4])
+    # Handle the restricted case with a fixed feature correspondence
+    if restricted and fixed_source_idx is not None and fixed_target_idx is not None:
+        fixed_source = source_features[fixed_source_idx]
+        fixed_target = target_features[fixed_target_idx]
+        fixed_p = np.array(fixed_source[2:4])
+        fixed_q = np.array(fixed_target[2:4])
         
-        # Find candidate matches in target_features based on similar turning angles.
-        candidates1 = [f for f in target_features if abs(np.radians(f[4]) - a1) < angle_tol]
-        candidates2 = [f for f in target_features if abs(np.radians(f[4]) - a2) < angle_tol]
-        
-        if not candidates1 or not candidates2:
-            continue
-        
-        # Loop over candidate pairs from target_features.
-        for f2_1 in candidates1:
-            for f2_2 in candidates2:
-                if np.array_equal(f2_1, f2_2):
-                    continue  # Skip if the same candidate is used twice.
-                q1, q2 = np.array(f2_1[2:4]), np.array(f2_2[2:4])
+        # Loop over all other features from source set to form pairs with the fixed feature
+        for i, other_source in enumerate(source_features):
+            if i == fixed_source_idx:
+                continue  # Skip the fixed feature itself
+                
+            other_p = np.array(other_source[2:4])
+            
+            # Avoid degenerate cases
+            if np.linalg.norm(other_p - fixed_p) < 1e-3:
+                continue
+                
+            # Loop over all other features from target set
+            for j, other_target in enumerate(target_features):
+                if j == fixed_target_idx:
+                    continue  # Skip the fixed feature itself
                     
-                # Avoid degenerate cases.
-                if np.linalg.norm(p2 - p1) < 1e-3 or np.linalg.norm(q2 - q1) < 1e-3:
+                other_q = np.array(other_target[2:4])
+                
+                # Avoid degenerate cases
+                if np.linalg.norm(other_q - fixed_q) < 1e-3:
                     continue
                 
-                # Estimate the candidate transformation using the two point pairs.
-                candidate_transformation = estimate_transformation_from_2pairs(p1, p2, q1, q2)
+                # Estimate transformation using the fixed pair and this additional pair
+                candidate_transformation = estimate_transformation_from_2pairs(fixed_p, other_p, fixed_q, other_q)
                 
-                # Evaluate inliers: transform each feature in source_features and look for a corresponding match in target_features.
+                # Evaluate inliers
                 inliers = []
                 for f in source_features:
                     pt = np.array(f[2:4])
-                    ang = f[4]  # in degrees
+                    ang = f[4]
                     pt_trans = candidate_transformation.rotation_matrix() @ pt + candidate_transformation.translation_vector()
                     best_match = None
                     for g in target_features:
@@ -107,10 +115,72 @@ def estimate_rigid_transformation(source_features, target_features, distance_tol
                     if best_match is not None:
                         inliers.append((f, best_match))
                 
+                # Ensure our fixed feature pair is included in the inliers
+                fixed_pair_found = False
+                for src, tgt in inliers:
+                    if np.array_equal(src, fixed_source) and np.array_equal(tgt, fixed_target):
+                        fixed_pair_found = True
+                        break
+                        
+                # If fixed pair isn't included, this transformation isn't valid
+                if not fixed_pair_found:
+                    continue
+                
                 if len(inliers) > best_inlier_count:
                     best_inlier_count = len(inliers)
                     best_transformation = candidate_transformation
                     best_inliers = inliers
+    else:
+        # Original unrestricted estimation
+        # Loop over all pairs of features from the first set.
+        for f1_1, f1_2 in itertools.combinations(source_features, 2):
+            # Use columns 2 and 3 as point coordinates.
+            p1, p2 = np.array(f1_1[2:4]), np.array(f1_2[2:4])
+            # Use column 4 as turning angle in degrees (converted to radians).
+            a1, a2 = np.radians(f1_1[4]), np.radians(f1_2[4])
+            
+            # Find candidate matches in target_features based on similar turning angles.
+            candidates1 = [f for f in target_features if abs(np.radians(f[4]) - a1) < angle_tol]
+            candidates2 = [f for f in target_features if abs(np.radians(f[4]) - a2) < angle_tol]
+            
+            if not candidates1 or not candidates2:
+                continue
+            
+            # Loop over candidate pairs from target_features.
+            for f2_1 in candidates1:
+                for f2_2 in candidates2:
+                    if np.array_equal(f2_1, f2_2):
+                        continue  # Skip if the same candidate is used twice.
+                    q1, q2 = np.array(f2_1[2:4]), np.array(f2_2[2:4])
+                        
+                    # Avoid degenerate cases.
+                    if np.linalg.norm(p2 - p1) < 1e-3 or np.linalg.norm(q2 - q1) < 1e-3:
+                        continue
+                    
+                    # Estimate the candidate transformation using the two point pairs.
+                    candidate_transformation = estimate_transformation_from_2pairs(p1, p2, q1, q2)
+                    
+                    # Evaluate inliers: transform each feature in source_features and look for a corresponding match in target_features.
+                    inliers = []
+                    for f in source_features:
+                        pt = np.array(f[2:4])
+                        ang = f[4]  # in degrees
+                        pt_trans = candidate_transformation.rotation_matrix() @ pt + candidate_transformation.translation_vector()
+                        best_match = None
+                        for g in target_features:
+                            pt2 = np.array(g[2:4])
+                            ang2 = g[4]
+                            if (np.linalg.norm(pt_trans - pt2) < distance_tol and 
+                                abs(np.radians(ang) - np.radians(ang2)) < angle_tol):
+                                best_match = g
+                                break
+                        if best_match is not None:
+                            inliers.append((f, best_match))
+                    
+                    if len(inliers) > best_inlier_count:
+                        best_inlier_count = len(inliers)
+                        best_transformation = candidate_transformation
+                        best_inliers = inliers
                     
     return best_transformation, best_inliers
 
@@ -207,7 +277,7 @@ def main():
     print(f"Refined IFC Transformation: theta = {refined_transformation_ifc.theta}, t = {refined_transformation_ifc.t}")
     
     # Apply the refined transformation to the IFC footprint.
-    polygon_ifc_transformed = refined_transformation_ifc.transform_shapely_polygon(polygon_ifc)
+    polygon_ifc_transformed = refined_transformation_ifc.transform(polygon_ifc)
     
     # --- Register DXF to the transformed IFC instead of CityGML ---
     print("\nEstimating transformation for DXF to transformed IFC...")
@@ -236,7 +306,7 @@ def main():
     # Print refined DXF→IFC transformation
     print(f"Refined DXF Transformation: theta = {refined_transformation_dxf.theta}, t = {refined_transformation_dxf.t}")
 
-    polygon_dxf_transformed = refined_transformation_dxf.transform_shapely_polygon(polygon_dxf)
+    polygon_dxf_transformed = refined_transformation_dxf.transform(polygon_dxf)
 
     # --- Plot all three footprints (aligned) ---
     plt.figure(figsize=(10, 10))
