@@ -4,7 +4,7 @@ import math
 
 from shapely.geometry import MultiPoint, Polygon, MultiPolygon, Point, LineString
 from shapely.ops import unary_union
-from sklearn.cluster import DBSCAN
+# from sklearn.cluster import DBSCAN
 
 
 def concave_hull_k(points, k):

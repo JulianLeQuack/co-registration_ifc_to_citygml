@@ -4,7 +4,7 @@ import random
 
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import *
 from source.transformation_horizontal.create_footprints.create_IFC_footprint import *
-from source.transformation_horizontal.create_footprints.create_hull import create_concave_hull
+#from source.transformation_horizontal.create_footprints.create_hull import create_concave_hull
 
 def compute_turning_angles(points):
     """
