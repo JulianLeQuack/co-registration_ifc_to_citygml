@@ -1,16 +1,24 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import ezdxf
+from shapely.geometry import Point
 
 def extract_elevation_labels(dxf_path, layer_name) -> np.array:
     """
-    Extracts elevation marks and their x, y coordinates from a DXF file.
+    Extracts elevation marks and their coordinates as Shapely Points from a DXF file.
+    
+    Args:
+        dxf_path: Path to the DXF file
+        layer_name: Name of the layer containing elevation labels
+        
+    Returns:
+        np.array: Array with shape (n, 2) where each row contains [Point, text_label]
     """
     # Open the DXF file and access the modelspace
     doc = ezdxf.readfile(dxf_path)
     msp = doc.modelspace()
 
-    # Query for all entities in the specified layer.
+    # Query for all entities in the specified layer
     elevation_entities = msp.query(f'*[layer=="{layer_name}"]')
 
     elevation_labels = []
@@ -20,16 +28,22 @@ def extract_elevation_labels(dxf_path, layer_name) -> np.array:
         if entity.dxftype() == "INSERT":
             x = entity.dxf.insert.x
             y = entity.dxf.insert.y
+            
+            # Create Shapely Point from coordinates
+            point = Point(x, y)
+            
             # Try to get text from attached ATTRIB entities
             attribs = list(entity.attribs)
             if attribs:
                 text = attribs[0].dxf.text
             else:
                 text = ""
-                print("Warning: INSERT entity has no attributes for text.")
-            elevation_labels.append((x, y, text))
+                print(f"Warning: INSERT entity at ({x},{y}) has no attributes for text.")
+            
+            elevation_labels.append([point, text])
 
-    return np.array(elevation_labels)
+    # Convert to numpy array
+    return np.array(elevation_labels, dtype=object)
 
 def main():
     dxf_path = "./test_data/dxf/01-05-0501_EG.dxf"
@@ -40,15 +54,15 @@ def main():
     # Create a scatter plot for the elevation labels.
     fig, ax = plt.subplots(figsize=(10, 10))
     if elevation_labels.size > 0:
-        # Extract x and y coordinates (assume they are in the first two columns)
-        x_coords = elevation_labels[:, 0].astype(float)
-        y_coords = elevation_labels[:, 1].astype(float)
+        # Extract x and y coordinates from Shapely Points
+        x_coords = [label[0].x for label in elevation_labels]
+        y_coords = [label[0].y for label in elevation_labels]
         
         ax.scatter(x_coords, y_coords, c="blue", marker="o", label="Elevation Marks")
         
         # Annotate each point with its text label.
-        for (x, y, text) in elevation_labels:
-            ax.text(float(x), float(y), text, fontsize=10, color="red",
+        for point, text in elevation_labels:
+            ax.text(point.x, point.y, text, fontsize=10, color="red",
                     verticalalignment="bottom", horizontalalignment="right")
     else:
         ax.text(0.5, 0.5, "No elevation labels found", transform=ax.transAxes, 

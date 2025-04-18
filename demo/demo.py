@@ -65,6 +65,16 @@ print("Saving Transformations to JSON...")
 refined_transformation_dxf_to_ifc.export_to_json(data_path + "transformation_dxf_to_citygml.json")
 refined_transformation_ifc_to_citygml.export_to_json(data_path + "transformation_ifc_to_citygml.json")
 
+
+
+
+## Vertical Registration
+
+# Extract elevation labels from DXF
+print("Extracting Elevation Labels from DXF...")
+elevation_labels_dxf = extract_elevation_labels(dxf_path=dxf_path, layer_name=dxf_layer)
+transformed_elevation_labels_dxf = refined_transformation_dxf_to_ifc.transform_elevation_labels(elevation_labels=elevation_labels_dxf)
+
 # Apply the transformations to the DXF and IFC files
 print("Applying Transformations to DXF and IFC files...")
 transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=data_path + "transformed_ifc.ifc")
