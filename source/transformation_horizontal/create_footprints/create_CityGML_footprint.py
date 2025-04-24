@@ -88,14 +88,49 @@ def create_CityGML_footprint(citygml_path, building_ids: list) -> MultiPolygon:
     except Exception as e:
         print(f"An error occurred: {e}")
         return MultiPolygon([])
+    
+
+def extract_building_ids(citygml_path: str) -> list:
+    """
+    Extracts building IDs from a CityGML file.
+    :param citygml_path: Path to the CityGML file
+    :return: List of building IDs (no None entries)
+    """
+    try:
+        tree = ET.parse(citygml_path)
+        root = tree.getroot()
+        ns = {
+            'bldg': 'http://www.opengis.net/citygml/building/2.0',
+            'gml': 'http://www.opengis.net/gml'
+        }
+
+        ids = []
+        # find all <bldg:Building> elements
+        for b in root.findall('.//bldg:Building', ns):
+            # attribute key is the full URI wrapped in {}
+            key = f"{{{ns['gml']}}}id"
+            bid = b.attrib.get(key)
+            if bid:
+                ids.append(bid)
+        return ids
+
+    except ET.ParseError:
+        print(f"Error parsing CityGML file: {citygml_path}")
+        return []
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return []
 
 
 if __name__ == "__main__":
     # Use a test file and optionally a list of building IDs 
     # For example, supply a list of building IDs: ['B1', 'B2']
+    print("Extracting building IDs from CityGML...")
+    building_ids = extract_building_ids("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml")
+    print(f"Building IDs: {building_ids}")
     footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml", ['DEBY_LOD2_4959793', 'DEBY_LOD2_4959323', 'DEBY_LOD2_4959321', 'DEBY_LOD2_4959324', 'DEBY_LOD2_4959459', 'DEBY_LOD2_4959322', 'DEBY_LOD2_4959458'])
     # footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml", ["DEBY_LOD2_4959457"])
-    print(f"Ouput Type: {type(footprint)}")
+    print(f"Output Type: {type(footprint)}")
     plt.figure(figsize=(10,10))
     if not footprint.is_empty:
         for poly in footprint.geoms:
