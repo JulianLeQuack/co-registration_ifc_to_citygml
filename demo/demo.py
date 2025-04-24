@@ -50,7 +50,7 @@ print(f"Transformation for IFC to CityGML: {refined_transformation_ifc_to_citygm
 
 # Transformation of IFC footprint to CityGML footprint and Feature Extraction
 print("Transforming IFC Footprint to CityGML Footprint...")
-ifc_footprint_transformed = refined_transformation_ifc_to_citygml.transform_shapely_polygon(ifc_footprint)
+ifc_footprint_transformed = refined_transformation_ifc_to_citygml.transform(ifc_footprint)
 ifc_features_transformed = detect_features(footprint=ifc_footprint_transformed, angle_threshold_deg=30)
 ifc_features_transformed_filtered = filter_features_by_feature_triangle_area(features=ifc_features_transformed, min_area=15)
 

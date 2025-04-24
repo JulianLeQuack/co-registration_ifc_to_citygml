@@ -1,5 +1,6 @@
 import streamlit as st
 import matplotlib.pyplot as plt
+import tempfile
 
 # Import your footprint and registration functions.
 from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import create_IFC_footprint_polygon
@@ -25,7 +26,10 @@ if page == "Input Data":
     citygml_file = st.file_uploader("Upload CityGML file", type=["gml"])
     dxf_file = st.file_uploader("Upload DXF file", type=["dxf"])
     if ifc_file is not None:
-        st.write("IFC file uploaded:", ifc_file.name)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".ifc") as tmp:
+            tmp.write(ifc_file.getvalue())
+            st.session_state.ifc_path = tmp.name
+        st.success(f"IFC uploaded → temp path saved:\n{st.session_state.ifc_path}")
     if citygml_file is not None:
         st.write("CityGML file uploaded:", citygml_file.name)
     if dxf_file is not None:
@@ -33,12 +37,26 @@ if page == "Input Data":
         
 elif page == "Footprint Creation Parameters":
     st.header("Footprint Creation Parameters")
-    min_area = st.slider("Minimum area for footprint creation", 0.0, 50.0, 15.0)
-    edge_length = st.slider("Edge length threshold", 0.0, 10.0, 2.0)
-    st.write("Parameters selected:")
-    st.write("Minimum Area:", min_area)
-    st.write("Edge Length Threshold:", edge_length)
-    # Here you would pass these parameters to your footprint creation functions.
+    if "ifc_path" not in st.session_state:
+        st.warning("Please upload an IFC file on the Input Data page first.")
+    else:
+        ifc_type = st.selectbox("Select IFC Type", ["IfcSlab", "IfcWall"])
+        if st.button("Create IFC Footprint"):
+            with st.spinner("Generating footprint…"):
+                footprint = create_IFC_footprint_polygon(
+                    ifc_path=st.session_state.ifc_path,
+                    ifc_type=ifc_type
+                )
+            if footprint:
+                fig, ax = plt.subplots(figsize=(6,6))
+                for poly in footprint.geoms:
+                    x, y = poly.exterior.xy
+                    ax.plot(x, y, color="green", lw=2)
+                ax.set_title(f"IFC Footprint ({ifc_type})")
+                ax.set_aspect("equal", "box")
+                st.pyplot(fig)
+            else:
+                st.error(f"No geometry returned for IFC type “{ifc_type}”.")
     
 elif page == "Corner Detection & Filtering":
     st.header("Corner Detection & Filtering")
