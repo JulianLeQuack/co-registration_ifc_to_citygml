@@ -1,6 +1,18 @@
-import streamlit as st
+import os, shutil, tempfile, streamlit as st
+from pathlib import Path
+import sys
+
+# define one temp folder
+TMP_DIR = Path(tempfile.gettempdir()) / "bim2city_tmp"
+
+# only reset on first run of this session
+if "tmp_dir_initialized" not in st.session_state:
+    if TMP_DIR.exists():
+        shutil.rmtree(TMP_DIR)
+    TMP_DIR.mkdir()
+    st.session_state.tmp_dir_initialized = True
+
 import matplotlib.pyplot as plt
-import tempfile
 
 # Import your footprint and registration functions.
 from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import create_IFC_footprint_polygon
@@ -26,7 +38,7 @@ if page == "Input Data":
     citygml_file = st.file_uploader("Upload CityGML file", type=["gml"])
     dxf_file = st.file_uploader("Upload DXF file", type=["dxf"])
     if ifc_file is not None:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".ifc") as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".ifc", dir=str(TMP_DIR)) as tmp:
             tmp.write(ifc_file.getvalue())
             st.session_state.ifc_path = tmp.name
         st.success(f"IFC uploaded → temp path saved:\n{st.session_state.ifc_path}")
