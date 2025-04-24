@@ -28,7 +28,7 @@ st.title("bim2city")
 # Sidebar navigation
 page = st.sidebar.radio("Navigation", 
                           ["Input Data", 
-                           "Footprint Creation Parameters", 
+                           "Footprint Creation", 
                            "Corner Detection & Filtering", 
                            "Rigid Registration Estimation"])
 
@@ -47,8 +47,8 @@ if page == "Input Data":
     if dxf_file is not None:
         st.write("DXF file uploaded:", dxf_file.name)
         
-elif page == "Footprint Creation Parameters":
-    st.header("Footprint Creation Parameters")
+elif page == "Footprint Creation":
+    st.header("Footprint Creation")
     if "ifc_path" not in st.session_state:
         st.warning("Please upload an IFC file on the Input Data page first.")
     else:
