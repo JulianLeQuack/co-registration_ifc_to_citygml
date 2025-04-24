@@ -24,28 +24,52 @@ from source.transformation_horizontal.estimate_rigid_transformation import estim
 
 
 # Page setup
+st.set_page_config(
+        page_title="bim2city",
+        page_icon="./images/bim2city_logo.png",
+        layout="wide",
+    )
 st.title("bim2city")
 # Sidebar navigation
 page = st.sidebar.radio("Navigation", 
-                          ["Input Data", 
+                          ["File Upload", 
                            "Footprint Creation", 
                            "Corner Detection & Filtering", 
                            "Rigid Registration Estimation"])
 
-if page == "Input Data":
-    st.header("Input Data")
-    ifc_file = st.file_uploader("Upload IFC file", type=["ifc"])
-    citygml_file = st.file_uploader("Upload CityGML file", type=["gml"])
-    dxf_file = st.file_uploader("Upload DXF file", type=["dxf"])
-    if ifc_file is not None:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".ifc", dir=str(TMP_DIR)) as tmp:
-            tmp.write(ifc_file.getvalue())
-            st.session_state.ifc_path = tmp.name
-        st.success(f"IFC uploaded → temp path saved:\n{st.session_state.ifc_path}")
-    if citygml_file is not None:
-        st.write("CityGML file uploaded:", citygml_file.name)
-    if dxf_file is not None:
-        st.write("DXF file uploaded:", dxf_file.name)
+if page == "File Upload":
+    st.header("File Upload")
+    col1, col2, col3 = st.columns(3)
+
+    # IFC upload in first column
+    with col1:
+        st.subheader("IFC")
+        ifc_file = st.file_uploader("Upload IFC file", type=["ifc"], key="uploader_ifc")
+        if ifc_file is not None:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".ifc", dir=str(TMP_DIR)) as tmp:
+                tmp.write(ifc_file.getvalue())
+                st.session_state.ifc_path = tmp.name
+            st.success(f"✅ IFC saved:\n{st.session_state.ifc_path}")
+
+    # CityGML upload in second column
+    with col2:
+        st.subheader("CityGML")
+        citygml_file = st.file_uploader("Upload CityGML file", type=["gml"], key="uploader_cgml")
+        if citygml_file is not None:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".gml", dir=str(TMP_DIR)) as tmp:
+                tmp.write(citygml_file.getvalue())
+                st.session_state.citygml_path = tmp.name
+            st.success(f"✅ CityGML saved:\n{st.session_state.citygml_path}")
+
+    # DXF upload in third column
+    with col3:
+        st.subheader("DXF")
+        dxf_file = st.file_uploader("Upload DXF file", type=["dxf"], key="uploader_dxf")
+        if dxf_file is not None:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf", dir=str(TMP_DIR)) as tmp:
+                tmp.write(dxf_file.getvalue())
+                st.session_state.dxf_path = tmp.name
+            st.success(f"✅ DXF saved:\n{st.session_state.dxf_path}")
         
 elif page == "Footprint Creation":
     st.header("Footprint Creation")
