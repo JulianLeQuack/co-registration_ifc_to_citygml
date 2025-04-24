@@ -71,7 +71,7 @@ def filter_features_by_edge_length(features: np.array, footprint, min_edge_len=2
     return np.array(filtered_features).reshape(-1, 5) if filtered_features else np.empty((0, 5))
 
 
-def filter_features_by_triangle_area(features: np.array, footprint, min_area=0.5) -> np.array:
+def filter_features_by_triangle_area(features: np.array, footprint, min_area=15) -> np.array:
     """
     Filters out detected features based on the area of the triangle
     formed by the feature vertex and its two neighbors (using all vertices).

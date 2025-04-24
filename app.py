@@ -7,7 +7,7 @@ from source.transformation_horizontal.create_footprints.create_IFC_footprint_pol
 from source.transformation_horizontal.create_footprints.create_DXF_footprint_polygon import create_DXF_footprint_polygon
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import create_CityGML_footprint
 
-from source.transformation_horizontal.detect_features import detect_features, filter_features_by_feature_triangle_area
+from source.transformation_horizontal.detect_features import detect_features, filter_features_by_triangle_area
 from source.transformation_horizontal.estimate_rigid_transformation import estimate_rigid_transformation, refine_rigid_transformation
 
 
@@ -40,44 +40,75 @@ elif page == "Footprint Creation Parameters":
     if "ifc_path" not in st.session_state:
         st.warning("Please upload an IFC file on the Input Data page first.")
     else:
-        ifc_type = st.selectbox("Select IFC Type", ["IfcSlab", "IfcWall"])
-        if st.button("Create IFC Footprint"):
-            with st.spinner("Generating footprint…"):
-                footprint = create_IFC_footprint_polygon(
-                    ifc_path=st.session_state.ifc_path,
-                    ifc_type=ifc_type
-                )
-            if footprint:
-                fig, ax = plt.subplots(figsize=(6,6))
-                for poly in footprint.geoms:
-                    x, y = poly.exterior.xy
-                    ax.plot(x, y, color="green", lw=2)
-                ax.set_title(f"IFC Footprint ({ifc_type})")
-                ax.set_aspect("equal", "box")
-                st.pyplot(fig)
-            else:
-                st.error(f"No geometry returned for IFC type “{ifc_type}”.")
+        # remember last choice in session_state so changing re‑triggers rerun
+        ifc_type = st.selectbox(
+            "Select IFC Type", 
+            ["IfcSlab", "IfcWall"], 
+            key="ifc_type"
+        )
+        # always regenerate on select change
+        with st.spinner(f"Generating footprint for {ifc_type}…"):
+            footprint = create_IFC_footprint_polygon(
+                ifc_path=st.session_state.ifc_path,
+                ifc_type=ifc_type
+            )
+        if footprint:
+            st.session_state.ifc_footprint = footprint
+            fig, ax = plt.subplots(figsize=(6,6))
+            for poly in footprint.geoms:
+                x, y = poly.exterior.xy
+                ax.plot(x, y, color="green", lw=2)
+            ax.set_title(f"IFC Footprint ({ifc_type})")
+            ax.set_aspect("equal", "box")
+            st.pyplot(fig)
+        else:
+            st.error(f"No geometry returned for IFC type “{ifc_type}”.")
     
 elif page == "Corner Detection & Filtering":
     st.header("Corner Detection & Filtering")
-    angle_threshold = st.slider("Corner Detection Angle Threshold (deg)", 10, 90, 30)
-    filter_area = st.slider("Filter Triangle Area", 0.0, 50.0, 15.0)
-    st.write("Current parameters:")
-    st.write("Angle Threshold:", angle_threshold)
-    st.write("Filter Triangle Area:", filter_area)
-    
-    # For demonstration, we simulate an already-created footprint and detected features.
-    # Replace this dummy plot with a call to your actual functions.
-    fig, ax = plt.subplots()
-    # Dummy footprint: a rectangle
-    x = [0, 1, 1, 0, 0]
-    y = [0, 0, 1, 1, 0]
-    ax.plot(x, y, color="blue", label="Footprint")
-    # Dummy detected corners (red dots)
-    ax.scatter([0, 1, 1, 0], [0, 0, 1, 1], color="red", label="Detected Corners")
-    ax.set_title("Detected Features on Footprint")
-    ax.legend()
-    st.pyplot(fig)
+    if "ifc_footprint" not in st.session_state:
+        st.warning("Please create an IFC footprint on the Footprint Creation Parameters page first.")
+    else:
+        footprint = st.session_state.ifc_footprint
+
+        # sliders with keys so Streamlit tracks them
+        angle_threshold = st.slider(
+            "Corner Detection Angle Threshold (deg)", 
+            0, 180, 30, key="angle_threshold"
+        )
+        min_area = st.slider(
+            "Filter Triangle Area", 
+            0.0, 100.0, 15.0, key="min_area"
+        )
+
+        # whenever sliders change, Streamlit reruns here
+        with st.spinner("Detecting and filtering features…"):
+            detected = detect_features(footprint, angle_threshold_deg=angle_threshold)
+            filtered = filter_features_by_triangle_area(detected, footprint, min_area)
+
+        fig, ax = plt.subplots(figsize=(6,6))
+        # draw footprint
+        for poly in footprint.geoms:
+            x, y = poly.exterior.xy
+            ax.plot(x, y, color="blue", lw=1)
+
+        # draw detected
+        if detected.size:
+            ax.scatter(
+                detected[:,2], detected[:,3],
+                color="orange", label=f"Detected ({len(detected)})"
+            )
+        # draw filtered
+        if filtered.size:
+            ax.scatter(
+                filtered[:,2], filtered[:,3],
+                color="red", label=f"Filtered ({len(filtered)})"
+            )
+
+        ax.set_title(f"Features @ angle≥{angle_threshold}° & area≥{min_area}")
+        ax.set_aspect("equal", "box")
+        ax.legend()
+        st.pyplot(fig)
     
 elif page == "Rigid Registration Estimation":
     st.header("Rigid Registration Estimation")
