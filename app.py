@@ -73,67 +73,112 @@ if page == "File Upload":
         
 elif page == "Footprint Creation":
     st.header("Footprint Creation")
-    col1, col2, col3 = st.columns(3)
+    col_cgml, col_ifc, col_dxf = st.columns(3)
 
-    with col1:
+    # --- CityGML column ---
+    with col_cgml:
         st.subheader("CityGML Footprint")
         if "citygml_path" not in st.session_state:
-            st.warning("Please upload a CityGML file on the Input Data page first.")
+            st.warning("Please upload a CityGML file on the File Upload page first.")
         else:
-            st.session_state.citygml_building_ids = extract_building_ids(st.session_state.citygml_path)
-            # remember last choice in session_state so changing re‑triggers rerun
-            citygml_building_id = st.selectbox(
-                "Select Building ID",
-                st.session_state.citygml_building_ids,
-                key="citygml_building_id"
-            )
-            # always regenerate on select change
-            with st.spinner(f"Generating footprint for {citygml_building_id}…"):
-                footprint = create_CityGML_footprint(
-                    citygml_path=st.session_state.citygml_path,
-                    building_ids=[citygml_building_id]
+            # 1) Extract all IDs once
+            if "citygml_ids_all" not in st.session_state:
+                st.session_state.citygml_ids_all = extract_building_ids(
+                    st.session_state.citygml_path
                 )
-            if footprint:
-                st.session_state.citygml_footprint = footprint
-                fig, ax = plt.subplots(figsize=(6,6))
-                for poly in footprint.geoms:
-                    x, y = poly.exterior.xy
-                    ax.plot(x, y, color="blue", lw=2)
-                ax.set_title(f"CityGML Footprint ({citygml_building_id})")
-                ax.set_aspect("equal", "box")
-                st.pyplot(fig)
-            else:
-                st.error(f"No geometry returned for CityGML building ID “{citygml_building_id}”.")
+            # 2) Initialize selected IDs once
+            if "citygml_sel_ids" not in st.session_state:
+                st.session_state.citygml_sel_ids = []
 
-    with col2:
+            # 3) Multi-select widget
+            sel_ids = st.multiselect(
+                "Select Building IDs",
+                options=st.session_state.citygml_ids_all,
+                default=st.session_state.citygml_sel_ids,
+                key="citygml_sel_ids"
+            )
+
+            # 4) Plot based on current selection
+            with st.spinner("Rendering CityGML footprints…"):
+                mp = create_CityGML_footprint(
+                    citygml_path=st.session_state.citygml_path,
+                    building_ids=sel_ids,
+                )
+            fig, ax = plt.subplots(figsize=(4, 4))
+            for poly, bid in zip(mp.geoms, sel_ids):
+                x, y = poly.exterior.xy
+                ax.plot(x, y, color="blue", linewidth=2)
+                cx, cy = poly.centroid.x, poly.centroid.y
+                ax.text(cx, cy, bid, fontsize=8, ha="center", va="center")
+            ax.set_aspect("equal", "box")
+            ax.set_title("CityGML Footprint")
+            st.pyplot(fig)
+
+    # --- IFC column ---
+    with col_ifc:
         st.subheader("IFC Footprint")
         if "ifc_path" not in st.session_state:
-            st.warning("Please upload an IFC file on the Input Data page first.")
+            st.warning("Please upload an IFC file on the File Upload page first.")
         else:
-            # remember last choice in session_state so changing re‑triggers rerun
-            ifc_type = st.selectbox(
-                "Select IFC Type", 
-                ["IfcSlab", "IfcWall"], 
-                key="ifc_type"
+            if "ifc_type" not in st.session_state:
+                st.session_state.ifc_type = "IfcSlab"
+
+            st.selectbox(
+                "Select IFC type",
+                ["IfcSlab", "IfcWall"],
+                index=["IfcSlab", "IfcWall"].index(st.session_state.ifc_type),
+                key="ifc_type",
             )
-            # always regenerate on select change
-            with st.spinner(f"Generating footprint for {ifc_type}…"):
-                footprint = create_IFC_footprint_polygon(
+
+            with st.spinner("Rendering IFC footprint…"):
+                mp_ifc = create_IFC_footprint_polygon(
                     ifc_path=st.session_state.ifc_path,
-                    ifc_type=ifc_type
+                    ifc_type=st.session_state.ifc_type,
                 )
-            if footprint:
-                st.session_state.ifc_footprint = footprint
-                fig, ax = plt.subplots(figsize=(6,6))
-                for poly in footprint.geoms:
-                    x, y = poly.exterior.xy
-                    ax.plot(x, y, color="green", lw=2)
-                ax.set_title(f"IFC Footprint ({ifc_type})")
-                ax.set_aspect("equal", "box")
-                st.pyplot(fig)
-            else:
-                st.error(f"No geometry returned for IFC type “{ifc_type}”.")
-  
+            fig2, ax2 = plt.subplots(figsize=(4, 4))
+            for poly in mp_ifc.geoms:
+                x, y = poly.exterior.xy
+                ax2.plot(x, y, color="green", linewidth=2)
+            ax2.set_aspect("equal", "box")
+            ax2.set_title(f"IFC Footprint ({st.session_state.ifc_type})")
+            st.pyplot(fig2)
+
+    # --- DXF column (layers) ---
+    with col_dxf:
+        st.subheader("DXF Footprint")
+        if "dxf_path" not in st.session_state:
+            st.warning("Please upload a DXF file on the File Upload page first.")
+        else:
+            # extract layers once
+            if "dxf_layers_all" not in st.session_state:
+                import ezdxf
+                doc = ezdxf.readfile(st.session_state.dxf_path)
+                st.session_state.dxf_layers_all = [ly.name for ly in doc.layers]
+            if "dxf_sel_layers" not in st.session_state:
+                st.session_state.dxf_sel_layers = st.session_state.dxf_layers_all.copy()
+
+            # plot first
+            with st.spinner("Rendering DXF footprints…"):
+                mp_dxf = create_DXF_footprint_polygon(
+                    dxf_path=st.session_state.dxf_path,
+                    layer_name=None  # the function can be adapted to accept multiple layers
+                )
+            fig3, ax3 = plt.subplots(figsize=(4, 4))
+            for poly in mp_dxf.geoms:
+                x, y = poly.exterior.xy
+                ax3.plot(x, y, color="purple", linewidth=2)
+            ax3.set_aspect("equal", "box")
+            ax3.set_title("DXF Footprint")
+            st.pyplot(fig3)
+
+            # multi‐select layers underneath
+            st.session_state.dxf_sel_layers = st.multiselect(
+                "Select DXF layers",
+                options=st.session_state.dxf_layers_all,
+                default=st.session_state.dxf_sel_layers,
+                key="dxf_sel_layers",
+            )
+
 elif page == "Corner Detection & Filtering":
     st.header("Corner Detection & Filtering")
     if "ifc_footprint" not in st.session_state:
