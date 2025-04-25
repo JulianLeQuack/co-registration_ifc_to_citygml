@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 # Import your footprint and registration functions.
 from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import create_IFC_footprint_polygon
 from source.transformation_horizontal.create_footprints.create_DXF_footprint_polygon import create_DXF_footprint_polygon
-from source.transformation_horizontal.create_footprints.create_CityGML_footprint import create_CityGML_footprint
+from source.transformation_horizontal.create_footprints.create_CityGML_footprint import create_CityGML_footprint, extract_building_ids
 
 from source.transformation_horizontal.detect_features import detect_features, filter_features_by_triangle_area
 from source.transformation_horizontal.estimate_rigid_transformation import estimate_rigid_transformation, refine_rigid_transformation
@@ -41,19 +41,9 @@ if page == "File Upload":
     st.header("File Upload")
     col1, col2, col3 = st.columns(3)
 
-    # IFC upload in first column
+    # CityGML upload in first column
     with col1:
-        st.subheader("IFC")
-        ifc_file = st.file_uploader("Upload IFC file", type=["ifc"], key="uploader_ifc")
-        if ifc_file is not None:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".ifc", dir=str(TMP_DIR)) as tmp:
-                tmp.write(ifc_file.getvalue())
-                st.session_state.ifc_path = tmp.name
-            st.success(f"✅ IFC saved:\n{st.session_state.ifc_path}")
-
-    # CityGML upload in second column
-    with col2:
-        st.subheader("CityGML")
+        st.subheader("CityGML File")
         citygml_file = st.file_uploader("Upload CityGML file", type=["gml"], key="uploader_cgml")
         if citygml_file is not None:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".gml", dir=str(TMP_DIR)) as tmp:
@@ -61,9 +51,19 @@ if page == "File Upload":
                 st.session_state.citygml_path = tmp.name
             st.success(f"✅ CityGML saved:\n{st.session_state.citygml_path}")
 
+    # IFC upload in second column
+    with col2:
+        st.subheader("IFC File")
+        ifc_file = st.file_uploader("Upload IFC file", type=["ifc"], key="uploader_ifc")
+        if ifc_file is not None:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".ifc", dir=str(TMP_DIR)) as tmp:
+                tmp.write(ifc_file.getvalue())
+                st.session_state.ifc_path = tmp.name
+            st.success(f"✅ IFC saved:\n{st.session_state.ifc_path}")
+
     # DXF upload in third column
     with col3:
-        st.subheader("DXF")
+        st.subheader("DXF File")
         dxf_file = st.file_uploader("Upload DXF file", type=["dxf"], key="uploader_dxf")
         if dxf_file is not None:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf", dir=str(TMP_DIR)) as tmp:
@@ -73,33 +73,67 @@ if page == "File Upload":
         
 elif page == "Footprint Creation":
     st.header("Footprint Creation")
-    if "ifc_path" not in st.session_state:
-        st.warning("Please upload an IFC file on the Input Data page first.")
-    else:
-        # remember last choice in session_state so changing re‑triggers rerun
-        ifc_type = st.selectbox(
-            "Select IFC Type", 
-            ["IfcSlab", "IfcWall"], 
-            key="ifc_type"
-        )
-        # always regenerate on select change
-        with st.spinner(f"Generating footprint for {ifc_type}…"):
-            footprint = create_IFC_footprint_polygon(
-                ifc_path=st.session_state.ifc_path,
-                ifc_type=ifc_type
-            )
-        if footprint:
-            st.session_state.ifc_footprint = footprint
-            fig, ax = plt.subplots(figsize=(6,6))
-            for poly in footprint.geoms:
-                x, y = poly.exterior.xy
-                ax.plot(x, y, color="green", lw=2)
-            ax.set_title(f"IFC Footprint ({ifc_type})")
-            ax.set_aspect("equal", "box")
-            st.pyplot(fig)
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.subheader("CityGML Footprint")
+        if "citygml_path" not in st.session_state:
+            st.warning("Please upload a CityGML file on the Input Data page first.")
         else:
-            st.error(f"No geometry returned for IFC type “{ifc_type}”.")
-    
+            st.session_state.citygml_building_ids = extract_building_ids(st.session_state.citygml_path)
+            # remember last choice in session_state so changing re‑triggers rerun
+            citygml_building_id = st.selectbox(
+                "Select Building ID",
+                st.session_state.citygml_building_ids,
+                key="citygml_building_id"
+            )
+            # always regenerate on select change
+            with st.spinner(f"Generating footprint for {citygml_building_id}…"):
+                footprint = create_CityGML_footprint(
+                    citygml_path=st.session_state.citygml_path,
+                    building_ids=[citygml_building_id]
+                )
+            if footprint:
+                st.session_state.citygml_footprint = footprint
+                fig, ax = plt.subplots(figsize=(6,6))
+                for poly in footprint.geoms:
+                    x, y = poly.exterior.xy
+                    ax.plot(x, y, color="blue", lw=2)
+                ax.set_title(f"CityGML Footprint ({citygml_building_id})")
+                ax.set_aspect("equal", "box")
+                st.pyplot(fig)
+            else:
+                st.error(f"No geometry returned for CityGML building ID “{citygml_building_id}”.")
+
+    with col2:
+        st.subheader("IFC Footprint")
+        if "ifc_path" not in st.session_state:
+            st.warning("Please upload an IFC file on the Input Data page first.")
+        else:
+            # remember last choice in session_state so changing re‑triggers rerun
+            ifc_type = st.selectbox(
+                "Select IFC Type", 
+                ["IfcSlab", "IfcWall"], 
+                key="ifc_type"
+            )
+            # always regenerate on select change
+            with st.spinner(f"Generating footprint for {ifc_type}…"):
+                footprint = create_IFC_footprint_polygon(
+                    ifc_path=st.session_state.ifc_path,
+                    ifc_type=ifc_type
+                )
+            if footprint:
+                st.session_state.ifc_footprint = footprint
+                fig, ax = plt.subplots(figsize=(6,6))
+                for poly in footprint.geoms:
+                    x, y = poly.exterior.xy
+                    ax.plot(x, y, color="green", lw=2)
+                ax.set_title(f"IFC Footprint ({ifc_type})")
+                ax.set_aspect("equal", "box")
+                st.pyplot(fig)
+            else:
+                st.error(f"No geometry returned for IFC type “{ifc_type}”.")
+  
 elif page == "Corner Detection & Filtering":
     st.header("Corner Detection & Filtering")
     if "ifc_footprint" not in st.session_state:
