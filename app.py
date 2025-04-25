@@ -22,6 +22,13 @@ from source.transformation_horizontal.create_footprints.create_CityGML_footprint
 from source.transformation_horizontal.detect_features import detect_features, filter_features_by_triangle_area
 from source.transformation_horizontal.estimate_rigid_transformation import estimate_rigid_transformation, refine_rigid_transformation
 
+@st.cache_data(show_spinner=False)
+def cached_ifc(path, ifc_type):
+    return create_IFC_footprint_polygon(path, ifc_type)
+
+@st.cache_data(show_spinner=False)
+def cached_dxf(path, layer):
+    return create_DXF_footprint_polygon(path, layer)
 
 # Page setup
 st.set_page_config(
@@ -131,10 +138,7 @@ elif page == "Footprint Creation":
             )
 
             with st.spinner("Rendering IFC footprint…"):
-                mp_ifc = create_IFC_footprint_polygon(
-                    ifc_path=st.session_state.ifc_path,
-                    ifc_type=st.session_state.ifc_type,
-                )
+                mp_ifc = cached_ifc(st.session_state.ifc_path, st.session_state.ifc_type)
             fig2, ax2 = plt.subplots(figsize=(4, 4))
             for poly in mp_ifc.geoms:
                 x, y = poly.exterior.xy
@@ -168,10 +172,7 @@ elif page == "Footprint Creation":
 
             # 4) Plot based on current selection
             with st.spinner("Rendering DXF footprints…"):
-                mp_dxf = create_DXF_footprint_polygon(
-                    dxf_path=st.session_state.dxf_path,
-                    layer_name=st.session_state.dxf_sel_layer,
-                )
+                mp_dxf = cached_dxf(st.session_state.dxf_path, st.session_state.dxf_sel_layer)
             fig3, ax3 = plt.subplots(figsize=(4, 4))
             for poly in mp_dxf.geoms:
                 x, y = poly.exterior.xy
