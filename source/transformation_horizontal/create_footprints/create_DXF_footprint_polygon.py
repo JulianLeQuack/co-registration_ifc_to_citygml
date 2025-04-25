@@ -102,11 +102,26 @@ def create_DXF_footprint_polygon(dxf_path, layer_name: str, use_origin_filter: b
     
     return footprint_mp
 
+def extract_layers(dxf_path):
+    """
+    Extracts all layer names from a DXF file.
+    
+    Parameters:
+        dxf_path (str): Path to the DXF file.
+    
+    Returns:
+        list: A list of layer names.
+    """
+    doc = ezdxf.readfile(dxf_path)
+    layers = doc.layers
+    return [layer.dxf.name for layer in layers]
+
 if __name__ == "__main__":
     # Specify your DXF file path and the target layer name.
     dxf_path = "./test_data/dxf/01-05-0501_EG.dxf"  # Update with your actual file path
     layer_name = "A_09_TRAGDECKE"  # Update if different
 
+    print(extract_layers(dxf_path))  # Print all layers in the DXF file
     # Extract the footprint as a MultiPolygon
     footprint = create_DXF_footprint_polygon(dxf_path, layer_name, use_origin_filter=False, origin_threshold=10.0)
 

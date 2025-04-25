@@ -149,35 +149,36 @@ elif page == "Footprint Creation":
         if "dxf_path" not in st.session_state:
             st.warning("Please upload a DXF file on the File Upload page first.")
         else:
-            # extract layers once
+            # 1) Extract layers once
             if "dxf_layers_all" not in st.session_state:
                 import ezdxf
                 doc = ezdxf.readfile(st.session_state.dxf_path)
-                st.session_state.dxf_layers_all = [ly.name for ly in doc.layers]
-            if "dxf_sel_layers" not in st.session_state:
-                st.session_state.dxf_sel_layers = st.session_state.dxf_layers_all.copy()
+                st.session_state.dxf_layers_all = [ly.dxf.name for ly in doc.layers]
+            # 2) Initialize selected layer once
+            if "dxf_sel_layer" not in st.session_state:
+                st.session_state.dxf_sel_layer = st.session_state.dxf_layers_all[0]
 
-            # plot first
+            # 3) Dropdown widget for layer selection
+            st.selectbox(
+                "Select DXF layer",
+                options=st.session_state.dxf_layers_all,
+                index=st.session_state.dxf_layers_all.index(st.session_state.dxf_sel_layer),
+                key="dxf_sel_layer",
+            )
+
+            # 4) Plot based on current selection
             with st.spinner("Rendering DXF footprints…"):
                 mp_dxf = create_DXF_footprint_polygon(
                     dxf_path=st.session_state.dxf_path,
-                    layer_name=None  # the function can be adapted to accept multiple layers
+                    layer_name=st.session_state.dxf_sel_layer,
                 )
             fig3, ax3 = plt.subplots(figsize=(4, 4))
             for poly in mp_dxf.geoms:
                 x, y = poly.exterior.xy
                 ax3.plot(x, y, color="purple", linewidth=2)
             ax3.set_aspect("equal", "box")
-            ax3.set_title("DXF Footprint")
+            ax3.set_title(f"DXF Footprint ({st.session_state.dxf_sel_layer})")
             st.pyplot(fig3)
-
-            # multi‐select layers underneath
-            st.session_state.dxf_sel_layers = st.multiselect(
-                "Select DXF layers",
-                options=st.session_state.dxf_layers_all,
-                default=st.session_state.dxf_sel_layers,
-                key="dxf_sel_layers",
-            )
 
 elif page == "Corner Detection & Filtering":
     st.header("Corner Detection & Filtering")
