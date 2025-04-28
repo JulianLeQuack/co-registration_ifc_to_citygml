@@ -189,6 +189,7 @@ elif page == "Corner Detection & Filtering":
             with st.spinner("Detecting and filtering features…"):
                 detected = detect_features(st.session_state.citygml_footprint, angle_threshold_deg=angle_threshold)
                 filtered = filter_features_by_feature_triangle_area(detected, min_area)
+                st.session_state.citygml_features_filtered = filtered
             fig, ax = plt.subplots(figsize=(4, 4))
             for poly in st.session_state.citygml_footprint.geoms:
                 x, y = poly.exterior.xy
@@ -217,6 +218,7 @@ elif page == "Corner Detection & Filtering":
             with st.spinner("Detecting and filtering features…"):
                 detected = detect_features(st.session_state.ifc_footprint, angle_threshold_deg=angle_threshold)
                 filtered = filter_features_by_feature_triangle_area(detected, min_area)
+                st.session_state.ifc_features_filtered = filtered
             fig, ax = plt.subplots(figsize=(4, 4))
             for poly in st.session_state.ifc_footprint.geoms:
                 x, y = poly.exterior.xy
@@ -245,6 +247,7 @@ elif page == "Corner Detection & Filtering":
             with st.spinner("Detecting and filtering features…"):
                 detected = detect_features(st.session_state.dxf_footprint, angle_threshold_deg=angle_threshold)
                 filtered = filter_features_by_feature_triangle_area(detected, min_area)
+                st.session_state.dxf_features_filtered = filtered
             fig, ax = plt.subplots(figsize=(4, 4))
             for poly in st.session_state.dxf_footprint.geoms:
                 x, y = poly.exterior.xy
@@ -258,19 +261,85 @@ elif page == "Corner Detection & Filtering":
             ax.legend()
             st.pyplot(fig)
 
+# --- Rigid Registration Estimation ---
 elif page == "Rigid Registration Estimation":
     st.header("Rigid Registration Estimation")
-    distance_tol = st.number_input("Distance tolerance", min_value=0.0, value=1.0, step=0.1)
-    angle_tol = st.number_input("Angle tolerance (deg)", min_value=0, value=45, step=1)
-    if st.button("Run Registration"):
-        st.write("Running rigid transformation estimation...")
-        # In an actual implementation you would:
-        # 1. Create footprints from the input data (IFC, DXF, CityGML)
-        # 2. Extract and filter features using your detection functions
-        # 3. Estimate & refine the rigid transformation.
-        # Here we simulate some output.
-        theta = 68.55
-        t = (100.0, 200.0)
-        inliers = 10
-        st.write(f"Estimated Transformation: θ = {theta}, t = {t}")
-        st.write(f"Number of inlier pairs: {inliers}")
+    col_ifc, col_dxf = st.columns(2)
+
+    # --- IFC to CityGML Registration ---
+    with col_ifc:
+        st.subheader("IFC → CityGML")
+        distance_tol_ifc = st.number_input("Distance tolerance (IFC)", min_value=0.0, value=1.0, step=0.1, key="dist_tol_ifc")
+        angle_tol_ifc = st.number_input("Angle tolerance (deg, IFC)", min_value=0, value=45, step=1, key="angle_tol_ifc")
+
+        # Print transformation if available
+        if "rigid_transformation_ifc" in st.session_state and st.session_state.rigid_transformation_ifc is not None:
+            rt = st.session_state.rigid_transformation_ifc
+            st.markdown(rt)
+
+        if st.button("Run IFC → CityGML Registration", key="run_ifc_reg"):
+            features_ifc_filtered = st.session_state.get("ifc_features_filtered", None)
+            features_citygml_filtered = st.session_state.get("citygml_features_filtered", None)
+            if features_ifc_filtered is None or features_citygml_filtered is None:
+                st.error("Please extract and filter features on the previous page first.")
+            else:
+                from source.transformation_horizontal.estimate_rigid_transformation import estimate_rigid_transformation
+                rigid_transformation_ifc, inlier_pairs_ifc = estimate_rigid_transformation(
+                    features_ifc_filtered, features_citygml_filtered,
+                    distance_tol=distance_tol_ifc, angle_tol_deg=angle_tol_ifc
+                )
+                st.session_state.rigid_transformation_ifc = rigid_transformation_ifc
+
+        # Only plot IFC→CityGML in this column
+        if "rigid_transformation_ifc" in st.session_state and st.session_state.rigid_transformation_ifc is not None:
+            fig, ax = plt.subplots(figsize=(5, 5))
+            for poly in st.session_state.citygml_footprint.geoms:
+                x, y = poly.exterior.xy
+                ax.plot(x, y, color="blue", label="CityGML" if 'CityGML' not in ax.get_legend_handles_labels()[1] else "")
+            transformed = st.session_state.rigid_transformation_ifc.transform(st.session_state.ifc_footprint)
+            for poly in transformed.geoms:
+                x, y = poly.exterior.xy
+                ax.plot(x, y, color="green", linestyle="--", label="IFC (transformed)" if 'IFC (transformed)' not in ax.get_legend_handles_labels()[1] else "")
+            ax.set_title("IFC → CityGML Registration")
+            ax.set_aspect("equal", "box")
+            ax.legend()
+            st.pyplot(fig)
+
+    # --- DXF to CityGML Registration ---
+    with col_dxf:
+        st.subheader("DXF → CityGML")
+        distance_tol_dxf = st.number_input("Distance tolerance (DXF)", min_value=0.0, value=1.0, step=0.1, key="dist_tol_dxf")
+        angle_tol_dxf = st.number_input("Angle tolerance (deg, DXF)", min_value=0, value=45, step=1, key="angle_tol_dxf")
+
+        # Print transformation if available
+        if "rigid_transformation_dxf" in st.session_state and st.session_state.rigid_transformation_dxf is not None:
+            rt = st.session_state.rigid_transformation_dxf
+            st.markdown(rt)
+
+        if st.button("Run DXF → CityGML Registration", key="run_dxf_reg"):
+            features_dxf_filtered = st.session_state.get("dxf_features_filtered", None)
+            features_citygml_filtered = st.session_state.get("citygml_features_filtered", None)
+            if features_dxf_filtered is None or features_citygml_filtered is None:
+                st.error("Please extract and filter features on the previous page first.")
+            else:
+                from source.transformation_horizontal.estimate_rigid_transformation import estimate_rigid_transformation
+                rigid_transformation_dxf, inlier_pairs_dxf = estimate_rigid_transformation(
+                    features_dxf_filtered, features_citygml_filtered,
+                    distance_tol=distance_tol_dxf, angle_tol_deg=angle_tol_dxf
+                )
+                st.session_state.rigid_transformation_dxf = rigid_transformation_dxf
+
+        # Only plot DXF→CityGML in this column
+        if "rigid_transformation_dxf" in st.session_state and st.session_state.rigid_transformation_dxf is not None:
+            fig, ax = plt.subplots(figsize=(5, 5))
+            for poly in st.session_state.citygml_footprint.geoms:
+                x, y = poly.exterior.xy
+                ax.plot(x, y, color="blue", label="CityGML" if 'CityGML' not in ax.get_legend_handles_labels()[1] else "")
+            transformed = st.session_state.rigid_transformation_dxf.transform(st.session_state.dxf_footprint)
+            for poly in transformed.geoms:
+                x, y = poly.exterior.xy
+                ax.plot(x, y, color="purple", linestyle="--", label="DXF (transformed)" if 'DXF (transformed)' not in ax.get_legend_handles_labels()[1] else "")
+            ax.set_title("DXF → CityGML Registration")
+            ax.set_aspect("equal", "box")
+            ax.legend()
+            st.pyplot(fig)
