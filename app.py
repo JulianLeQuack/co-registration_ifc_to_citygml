@@ -1,16 +1,13 @@
 import os, shutil, tempfile, streamlit as st
 from pathlib import Path
 import sys
+import pickle
 
 # define one temp folder
-TMP_DIR = Path(tempfile.gettempdir()) / "bim2city_tmp"
-
-# only reset on first run of this session
-if "tmp_dir_initialized" not in st.session_state:
-    if TMP_DIR.exists():
-        shutil.rmtree(TMP_DIR)
-    TMP_DIR.mkdir()
-    st.session_state.tmp_dir_initialized = True
+TMP_DIR = "./test_data/tmp"
+# check if the tmp folder exists, if not create it
+if not os.path.exists(TMP_DIR):
+    os.makedirs(TMP_DIR)
 
 import matplotlib.pyplot as plt
 
@@ -41,7 +38,8 @@ st.title("bim2city")
 page = st.sidebar.radio("Navigation", 
                           ["File Upload", 
                            "Footprint Creation", 
-                           "Corner Detection & Filtering", 
+                           "Corner Detection & Filtering",
+                           "Point-symmetry Checking",
                            "Rigid Registration Estimation"])
 
 if page == "File Upload":
@@ -57,6 +55,8 @@ if page == "File Upload":
                 tmp.write(citygml_file.getvalue())
                 st.session_state.citygml_path = tmp.name
             st.success(f"✅ CityGML saved:\n{st.session_state.citygml_path}")
+        elif "citygml_path" in st.session_state:
+            st.info(f"💾 Previously uploaded CityGML file found:\n{st.session_state.citygml_path}")
 
     # IFC upload in second column
     with col2:
@@ -67,6 +67,8 @@ if page == "File Upload":
                 tmp.write(ifc_file.getvalue())
                 st.session_state.ifc_path = tmp.name
             st.success(f"✅ IFC saved:\n{st.session_state.ifc_path}")
+        elif "ifc_path" in st.session_state:
+            st.info(f"💾 Previously uploaded IFC file found:\n{st.session_state.ifc_path}")
 
     # DXF upload in third column
     with col3:
@@ -77,6 +79,8 @@ if page == "File Upload":
                 tmp.write(dxf_file.getvalue())
                 st.session_state.dxf_path = tmp.name
             st.success(f"✅ DXF saved:\n{st.session_state.dxf_path}")
+        elif "dxf_path" in st.session_state:
+            st.info(f"💾 Previously uploaded DXF file found:\n{st.session_state.dxf_path}")
         
 # --- Footprint Creation ---
 elif page == "Footprint Creation":
@@ -86,34 +90,72 @@ elif page == "Footprint Creation":
     # --- CityGML column ---
     with col_cgml:
         st.subheader("CityGML Footprint")
-        if "citygml_path" not in st.session_state:
+        citygml_path = st.session_state.get("citygml_path")
+        if not citygml_path:
             st.warning("Please upload a CityGML file on the File Upload page first.")
         else:
-            if "citygml_ids_all" not in st.session_state:
-                st.session_state.citygml_ids_all = extract_building_ids(st.session_state.citygml_path)
-            if "citygml_sel_ids" not in st.session_state:
-                st.session_state.citygml_sel_ids = []
+            # Define paths for persistent storage
+            ids_all_path = os.path.join(TMP_DIR, "citygml_ids_all.pkl")
+            sel_ids_path = os.path.join(TMP_DIR, "citygml_sel_ids.pkl")
+            footprint_path = os.path.join(TMP_DIR, "citygml_footprint.pkl")
+
+            # Load or extract building IDs
+            if os.path.exists(ids_all_path):
+                with open(ids_all_path, 'rb') as f:
+                    building_ids_all = pickle.load(f)
+            else:
+                building_ids_all = extract_building_ids(citygml_path)
+                with open(ids_all_path, 'wb') as f:
+                    pickle.dump(building_ids_all, f)
+            
+            # Load previously selected IDs or initialize empty
+            if os.path.exists(sel_ids_path):
+                with open(sel_ids_path, 'rb') as f:
+                    default_sel_ids = pickle.load(f)
+            else:
+                default_sel_ids = []
+
+            # Building ID selection
             sel_ids = st.multiselect(
                 "Select Building IDs",
-                options=st.session_state.citygml_ids_all,
-                default=st.session_state.citygml_sel_ids,
+                options=building_ids_all,
+                default=default_sel_ids,
                 key="citygml_sel_ids"
             )
-            with st.spinner("Rendering CityGML footprints…"):
-                mp = create_CityGML_footprint(
-                    citygml_path=st.session_state.citygml_path,
-                    building_ids=sel_ids,
-                )
-                st.session_state.citygml_footprint = mp
-            fig, ax = plt.subplots(figsize=(4, 4))
-            for poly, bid in zip(mp.geoms, sel_ids):
-                x, y = poly.exterior.xy
-                ax.plot(x, y, color="blue", linewidth=2)
-                cx, cy = poly.centroid.x, poly.centroid.y
-                ax.text(cx, cy, bid, fontsize=8, ha="center", va="center")
-            ax.set_aspect("equal", "box")
-            ax.set_title("CityGML Footprint")
-            st.pyplot(fig)
+
+            # Save selected IDs
+            with open(sel_ids_path, 'wb') as f:
+                pickle.dump(sel_ids, f)
+
+            # Load existing footprint or create new one
+            if len(sel_ids) > 0:
+                with st.spinner("Rendering CityGML footprints…"):
+                    if os.path.exists(footprint_path) and sel_ids == default_sel_ids:
+                        # Load cached footprint if selection hasn't changed
+                        with open(footprint_path, 'rb') as f:
+                            mp = pickle.load(f)
+                    else:
+                        # Create new footprint if selection changed
+                        mp = create_CityGML_footprint(
+                            citygml_path=citygml_path,
+                            building_ids=sel_ids,
+                        )
+                        # Cache the new footprint
+                        with open(footprint_path, 'wb') as f:
+                            pickle.dump(mp, f)
+                    
+                    st.session_state.citygml_footprint = mp
+
+                    # Display footprint
+                    fig, ax = plt.subplots(figsize=(4, 4))
+                    for poly, bid in zip(mp.geoms, sel_ids):
+                        x, y = poly.exterior.xy
+                        ax.plot(x, y, color="blue", linewidth=2)
+                        cx, cy = poly.centroid.x, poly.centroid.y
+                        ax.text(cx, cy, bid, fontsize=8, ha="center", va="center")
+                    ax.set_aspect("equal", "box")
+                    ax.set_title("CityGML Footprint")
+                    st.pyplot(fig)
 
     # --- IFC column ---
     with col_ifc:
