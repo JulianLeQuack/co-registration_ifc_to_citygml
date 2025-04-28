@@ -220,7 +220,7 @@ elif page == "Corner Detection & Filtering":
     with col_cgml:
         st.subheader("CityGML")
         if "citygml_footprint" not in st.session_state:
-            st.info("No CityGML footprint available.")
+            st.warning("No CityGML footprint available.")
         else:
             angle_threshold = st.slider(
                 "Corner Detection Angle Threshold (deg)", 0, 180, 30, key="angle_threshold_cgml"
@@ -249,7 +249,7 @@ elif page == "Corner Detection & Filtering":
     with col_ifc:
         st.subheader("IFC")
         if "ifc_footprint" not in st.session_state:
-            st.info("No IFC footprint available.")
+            st.warning("No IFC footprint available.")
         else:
             angle_threshold = st.slider(
                 "Corner Detection Angle Threshold (deg)", 0, 180, 30, key="angle_threshold_ifc"
@@ -278,7 +278,7 @@ elif page == "Corner Detection & Filtering":
     with col_dxf:
         st.subheader("DXF")
         if "dxf_footprint" not in st.session_state:
-            st.info("No DXF footprint available.")
+            st.warning("No DXF footprint available.")
         else:
             angle_threshold = st.slider(
                 "Corner Detection Angle Threshold (deg)", 0, 180, 30, key="angle_threshold_dxf"
