@@ -46,41 +46,56 @@ if page == "File Upload":
     st.header("File Upload")
     col1, col2, col3 = st.columns(3)
 
-    # CityGML upload in first column
+    # --- CityGML upload ---
     with col1:
         st.subheader("CityGML File")
+        citygml_fixed_path = os.path.join(TMP_DIR, "citygml_upload.gml")
         citygml_file = st.file_uploader("Upload CityGML file", type=["gml"], key="uploader_cgml")
         if citygml_file is not None:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".gml", dir=str(TMP_DIR)) as tmp:
-                tmp.write(citygml_file.getvalue())
-                st.session_state.citygml_path = tmp.name
-            st.success(f"✅ CityGML saved:\n{st.session_state.citygml_path}")
-        elif "citygml_path" in st.session_state:
-            st.info(f"💾 Previously uploaded CityGML file found:\n{st.session_state.citygml_path}")
+            with open(citygml_fixed_path, "wb") as out:
+                out.write(citygml_file.getvalue())
+            st.session_state.citygml_path = citygml_fixed_path
+            st.session_state.citygml_filename = citygml_file.name
+            st.success(f"✅ CityGML saved:\n{citygml_fixed_path}")
+        elif os.path.exists(citygml_fixed_path):
+            st.session_state.citygml_path = citygml_fixed_path
+            st.info(f"💾 Previously uploaded CityGML file found:\n{citygml_fixed_path}")
+            if "citygml_filename" in st.session_state:
+                st.info(f"File: {st.session_state.citygml_filename}")
 
-    # IFC upload in second column
+    # --- IFC upload ---
     with col2:
         st.subheader("IFC File")
+        ifc_fixed_path = os.path.join(TMP_DIR, "ifc_upload.ifc")
         ifc_file = st.file_uploader("Upload IFC file", type=["ifc"], key="uploader_ifc")
         if ifc_file is not None:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".ifc", dir=str(TMP_DIR)) as tmp:
-                tmp.write(ifc_file.getvalue())
-                st.session_state.ifc_path = tmp.name
-            st.success(f"✅ IFC saved:\n{st.session_state.ifc_path}")
-        elif "ifc_path" in st.session_state:
-            st.info(f"💾 Previously uploaded IFC file found:\n{st.session_state.ifc_path}")
+            with open(ifc_fixed_path, "wb") as out:
+                out.write(ifc_file.getvalue())
+            st.session_state.ifc_path = ifc_fixed_path
+            st.session_state.ifc_filename = ifc_file.name
+            st.success(f"✅ IFC saved:\n{ifc_fixed_path}")
+        elif os.path.exists(ifc_fixed_path):
+            st.session_state.ifc_path = ifc_fixed_path
+            st.info(f"💾 Previously uploaded IFC file found:\n{ifc_fixed_path}")
+            if "ifc_filename" in st.session_state:
+                st.info(f"File: {st.session_state.ifc_filename}")
 
-    # DXF upload in third column
+    # --- DXF upload ---
     with col3:
         st.subheader("DXF File")
+        dxf_fixed_path = os.path.join(TMP_DIR, "dxf_upload.dxf")
         dxf_file = st.file_uploader("Upload DXF file", type=["dxf"], key="uploader_dxf")
         if dxf_file is not None:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf", dir=str(TMP_DIR)) as tmp:
-                tmp.write(dxf_file.getvalue())
-                st.session_state.dxf_path = tmp.name
-            st.success(f"✅ DXF saved:\n{st.session_state.dxf_path}")
-        elif "dxf_path" in st.session_state:
-            st.info(f"💾 Previously uploaded DXF file found:\n{st.session_state.dxf_path}")
+            with open(dxf_fixed_path, "wb") as out:
+                out.write(dxf_file.getvalue())
+            st.session_state.dxf_path = dxf_fixed_path
+            st.session_state.dxf_filename = dxf_file.name
+            st.success(f"✅ DXF saved:\n{dxf_fixed_path}")
+        elif os.path.exists(dxf_fixed_path):
+            st.session_state.dxf_path = dxf_fixed_path
+            st.info(f"💾 Previously uploaded DXF file found:\n{dxf_fixed_path}")
+            if "dxf_filename" in st.session_state:
+                st.info(f"File: {st.session_state.dxf_filename}")
         
 # --- Footprint Creation ---
 elif page == "Footprint Creation":
