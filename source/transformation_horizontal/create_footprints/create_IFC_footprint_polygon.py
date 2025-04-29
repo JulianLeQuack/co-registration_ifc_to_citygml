@@ -83,6 +83,22 @@ def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab"):
 
     return footprint
 
+def extract_classes(ifc_path):
+    """
+    Extracts and prints the classes of elements in the IFC file.
+    
+    Parameters:
+        ifc_path (str): Path to the IFC file.
+    
+    Returns:
+        list: List of unique classes found in the IFC file.
+    """
+    ifc_file = ifcopenshell.open(ifc_path)
+    classes = set()
+    for entity in ifc_file:
+        classes.add(entity.is_a())
+    return list(classes)
+
 def main():
     # Choose your IFC file path:
     ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
@@ -92,6 +108,8 @@ def main():
     if footprint is None:
         print("Failed to create IFC footprint polygon.")
         return
+    
+    print(extract_classes(ifc_path))  # Print all classes in the IFC file
 
     # Plot the footprint MultiPolygon
     plt.figure(figsize=(8, 8))
