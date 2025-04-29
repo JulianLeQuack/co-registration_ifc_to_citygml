@@ -175,55 +175,122 @@ elif page == "Footprint Creation":
     # --- IFC column ---
     with col_ifc:
         st.subheader("IFC Footprint")
-        if "ifc_path" not in st.session_state:
+        ifc_path = st.session_state.get("ifc_path")
+        if not ifc_path:
             st.warning("Please upload an IFC file on the File Upload page first.")
         else:
-            if "ifc_type" not in st.session_state:
-                st.session_state.ifc_type = "IfcSlab"
-            st.selectbox(
-                "Select IFC type",
-                ["IfcSlab", "IfcWall"],
-                index=["IfcSlab", "IfcWall"].index(st.session_state.ifc_type),
-                key="ifc_type",
+            # Persistent storage paths
+            ifc_classes_path = os.path.join(TMP_DIR, "ifc_classes.pkl")
+            ifc_sel_class_path = os.path.join(TMP_DIR, "ifc_sel_class.pkl")
+            ifc_footprint_path = os.path.join(TMP_DIR, "ifc_footprint.pkl")
+
+            # Load or extract all classes
+            if os.path.exists(ifc_classes_path):
+                with open(ifc_classes_path, "rb") as f:
+                    ifc_classes_all = pickle.load(f)
+            else:
+                from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import extract_classes
+                ifc_classes_all = extract_classes(ifc_path)
+                with open(ifc_classes_path, "wb") as f:
+                    pickle.dump(ifc_classes_all, f)
+
+            # Load previously selected class or default to first
+            if os.path.exists(ifc_sel_class_path):
+                with open(ifc_sel_class_path, "rb") as f:
+                    default_ifc_class = pickle.load(f)
+            else:
+                default_ifc_class = "IfcSlab" if ifc_classes_all else ""
+
+            # Class selection
+            ifc_class = st.selectbox(
+                "Select IFC class",
+                options=ifc_classes_all,
+                index=ifc_classes_all.index(default_ifc_class) if default_ifc_class in ifc_classes_all else 0,
+                key="ifc_type"
             )
+
+            # Save selected class
+            with open(ifc_sel_class_path, "wb") as f:
+                pickle.dump(ifc_class, f)
+
+            # Load existing footprint or create new one
             with st.spinner("Rendering IFC footprint…"):
-                mp_ifc = cached_ifc(st.session_state.ifc_path, st.session_state.ifc_type)
+                if os.path.exists(ifc_footprint_path) and ifc_class == default_ifc_class:
+                    with open(ifc_footprint_path, "rb") as f:
+                        mp_ifc = pickle.load(f)
+                else:
+                    mp_ifc = cached_ifc(ifc_path, ifc_class)
+                    with open(ifc_footprint_path, "wb") as f:
+                        pickle.dump(mp_ifc, f)
                 st.session_state.ifc_footprint = mp_ifc
+
             fig2, ax2 = plt.subplots(figsize=(4, 4))
             for poly in mp_ifc.geoms:
                 x, y = poly.exterior.xy
                 ax2.plot(x, y, color="green", linewidth=2)
             ax2.set_aspect("equal", "box")
-            ax2.set_title(f"IFC Footprint ({st.session_state.ifc_type})")
+            ax2.set_title(f"IFC Footprint ({ifc_class})")
             st.pyplot(fig2)
 
     # --- DXF column ---
     with col_dxf:
         st.subheader("DXF Footprint")
-        if "dxf_path" not in st.session_state:
+        dxf_path = st.session_state.get("dxf_path")
+        if not dxf_path:
             st.warning("Please upload a DXF file on the File Upload page first.")
         else:
-            if "dxf_layers_all" not in st.session_state:
+            # Persistent storage paths
+            dxf_layers_path = os.path.join(TMP_DIR, "dxf_layers.pkl")
+            dxf_sel_layer_path = os.path.join(TMP_DIR, "dxf_sel_layer.pkl")
+            dxf_footprint_path = os.path.join(TMP_DIR, "dxf_footprint.pkl")
+
+            # Load or extract all layers
+            if os.path.exists(dxf_layers_path):
+                with open(dxf_layers_path, "rb") as f:
+                    dxf_layers_all = pickle.load(f)
+            else:
                 import ezdxf
-                doc = ezdxf.readfile(st.session_state.dxf_path)
-                st.session_state.dxf_layers_all = [ly.dxf.name for ly in doc.layers]
-            if "dxf_sel_layer" not in st.session_state:
-                st.session_state.dxf_sel_layer = st.session_state.dxf_layers_all[0]
-            st.selectbox(
+                doc = ezdxf.readfile(dxf_path)
+                dxf_layers_all = [ly.dxf.name for ly in doc.layers]
+                with open(dxf_layers_path, "wb") as f:
+                    pickle.dump(dxf_layers_all, f)
+
+            # Load previously selected layer or default to first
+            if os.path.exists(dxf_sel_layer_path):
+                with open(dxf_sel_layer_path, "rb") as f:
+                    default_dxf_layer = pickle.load(f)
+            else:
+                default_dxf_layer = "A_09_TRAGDECKE" if dxf_layers_all else ""
+
+            # Layer selection
+            dxf_layer = st.selectbox(
                 "Select DXF layer",
-                options=st.session_state.dxf_layers_all,
-                index=st.session_state.dxf_layers_all.index(st.session_state.dxf_sel_layer),
-                key="dxf_sel_layer",
+                options=dxf_layers_all,
+                index=dxf_layers_all.index(default_dxf_layer) if default_dxf_layer in dxf_layers_all else 0,
+                key="dxf_sel_layer"
             )
+
+            # Save selected layer
+            with open(dxf_sel_layer_path, "wb") as f:
+                pickle.dump(dxf_layer, f)
+
+            # Load existing footprint or create new one
             with st.spinner("Rendering DXF footprints…"):
-                mp_dxf = cached_dxf(st.session_state.dxf_path, st.session_state.dxf_sel_layer)
+                if os.path.exists(dxf_footprint_path) and dxf_layer == default_dxf_layer:
+                    with open(dxf_footprint_path, "rb") as f:
+                        mp_dxf = pickle.load(f)
+                else:
+                    mp_dxf = cached_dxf(dxf_path, dxf_layer)
+                    with open(dxf_footprint_path, "wb") as f:
+                        pickle.dump(mp_dxf, f)
                 st.session_state.dxf_footprint = mp_dxf
+
             fig3, ax3 = plt.subplots(figsize=(4, 4))
             for poly in mp_dxf.geoms:
                 x, y = poly.exterior.xy
                 ax3.plot(x, y, color="purple", linewidth=2)
             ax3.set_aspect("equal", "box")
-            ax3.set_title(f"DXF Footprint ({st.session_state.dxf_sel_layer})")
+            ax3.set_title(f"DXF Footprint ({dxf_layer})")
             st.pyplot(fig3)
 
 # --- Corner Detection & Filtering ---
