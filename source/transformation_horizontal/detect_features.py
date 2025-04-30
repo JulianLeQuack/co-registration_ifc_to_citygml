@@ -233,7 +233,7 @@ if __name__ == "__main__":
     filtered_features_citygml = filter_features_by_edge_length(features_citygml, footprint_citygml, min_edge_len=min_edge_len)
     
     # Filter features by triangle area using features (not vertices).
-    min_area = 5
+    min_area = 15
     filtered_features_ifc_area = filter_features_by_feature_triangle_area(features_ifc, min_area=min_area)
     filtered_features_dxf_area = filter_features_by_feature_triangle_area(features_dxf, min_area=min_area)
     filtered_features_citygml_area = filter_features_by_feature_triangle_area(features_citygml, min_area=min_area)
@@ -266,3 +266,35 @@ if __name__ == "__main__":
     
     plt.tight_layout()
     plt.show()
+
+
+# fig, (ax1, ax2) = plt.subplots(2,1, figsize=(24, 12))
+
+# # Left: All detected corners
+# for poly in footprint_ifc.geoms:
+#     x, y = poly.exterior.xy
+#     ax1.plot(x, y, color='blue', alpha=0.5)
+# if features_ifc.size:
+#     ax1.scatter(features_ifc[:, 2], features_ifc[:, 3], color='red', s=80, label=f'All Detected: {len(features_ifc)}')
+#     # Place label in the middle of the plot
+#     mid_x = (ax1.get_xlim()[0] + ax1.get_xlim()[1]) / 2
+#     mid_y = (ax1.get_ylim()[0] + ax1.get_ylim()[1]) / 2
+#     ax1.text(mid_x, mid_y, f'All Detected: {len(features_ifc)}', fontsize=22, color='black', ha='center', va='center', weight='bold', alpha=1)
+# ax1.set_title("IFC Footprint - All Detected Corners")
+# ax1.set_aspect("equal", "box")
+
+# # Right: Filtered corners by feature triangle area
+# for poly in footprint_ifc.geoms:
+#     x, y = poly.exterior.xy
+#     ax2.plot(x, y, color='blue', alpha=0.5)
+# if filtered_features_ifc_feature_area.size:
+#     ax2.scatter(filtered_features_ifc_feature_area[:, 2], filtered_features_ifc_feature_area[:, 3], color='red', s=80, label=f'After Filtering: {len(filtered_features_ifc_feature_area)}')
+#     # Place label in the middle of the plot
+#     mid_x = (ax2.get_xlim()[0] + ax2.get_xlim()[1]) / 2
+#     mid_y = (ax2.get_ylim()[0] + ax2.get_ylim()[1]) / 2
+#     ax2.text(mid_x, mid_y, f'After Filtering: {len(filtered_features_ifc_feature_area)}', fontsize=22, color='black', ha='center', va='center', weight='bold', alpha=1)
+# ax2.set_title("IFC Footprint - Filtered Corners (Feature Triangle Area)")
+# ax2.set_aspect("equal", "box")
+
+# plt.tight_layout()
+# plt.show()
