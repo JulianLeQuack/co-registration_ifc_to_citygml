@@ -268,7 +268,7 @@ if __name__ == "__main__":
     plt.show()
 
 
-# fig, (ax1, ax2) = plt.subplots(2,1, figsize=(24, 12))
+# fig, (ax1, ax2) = plt.subplots(2,1, figsize=(18, 9))
 
 # # Left: All detected corners
 # for poly in footprint_ifc.geoms:
