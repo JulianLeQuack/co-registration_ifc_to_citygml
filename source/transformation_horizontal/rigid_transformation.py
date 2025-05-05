@@ -76,7 +76,7 @@ class Rigid_Transformation:
     #         return None
         
 
-    def transform_ifc(self, input_ifc_path, output_ifc_path):
+    def transform_ifc(self, input_ifc_path, output_ifc_path, z=0):
         """
         Apply the transformation to an IFC file and save the transformed model.
         """
@@ -85,7 +85,6 @@ class Rigid_Transformation:
         
         # Prepare arguments for ifcpatch
         x, y = self.t
-        z = 0
         theta_rad = self.theta
         az = np.degrees(theta_rad)
 
