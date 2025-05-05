@@ -12,7 +12,7 @@ if not os.path.exists(TMP_DIR):
 import matplotlib.pyplot as plt
 
 # Import your footprint and registration functions.
-from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import create_IFC_footprint_polygon
+from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import create_IFC_footprint_polygon, extract_building_storeys, extract_classes
 from source.transformation_horizontal.create_footprints.create_DXF_footprint_polygon import create_DXF_footprint_polygon
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import create_CityGML_footprint, extract_building_ids
 
@@ -128,7 +128,7 @@ elif page == "Footprint Creation":
                 with open(sel_ids_path, 'rb') as f:
                     default_sel_ids = pickle.load(f)
             else:
-                default_sel_ids = []
+                default_sel_ids = building_ids_all[0]
 
             # Building ID selection
             sel_ids = st.multiselect(
@@ -179,58 +179,104 @@ elif page == "Footprint Creation":
         if not ifc_path:
             st.warning("Please upload an IFC file on the File Upload page first.")
         else:
-            # Persistent storage paths
-            ifc_classes_path = os.path.join(TMP_DIR, "ifc_classes.pkl")
+            # Persistent storage paths for storeys, classes, and footprint
+            storeys_all_path   = os.path.join(TMP_DIR, "ifc_storeys_all.pkl")
+            sel_storeys_path   = os.path.join(TMP_DIR, "ifc_sel_storeys.pkl")
+            ifc_classes_path   = os.path.join(TMP_DIR, "ifc_classes.pkl")
             ifc_sel_class_path = os.path.join(TMP_DIR, "ifc_sel_class.pkl")
             ifc_footprint_path = os.path.join(TMP_DIR, "ifc_footprint.pkl")
 
-            # Load or extract all classes
+            # Load or extract all building storeys
+            if os.path.exists(storeys_all_path):
+                with open(storeys_all_path, "rb") as f:
+                    ifc_storeys_all = pickle.load(f)
+            else:
+                ifc_storeys_all = extract_building_storeys(ifc_path)
+                with open(storeys_all_path, "wb") as f:
+                    pickle.dump(ifc_storeys_all, f)
+
+            # Load previously selected storeys or default to first
+            if os.path.exists(sel_storeys_path):
+                with open(sel_storeys_path, "rb") as f:
+                    default_storeys = pickle.load(f)
+            else:
+                default_storeys = []
+            if not default_storeys and ifc_storeys_all:
+                default_storeys = [ifc_storeys_all[0]]
+
+            # Storey selection widget
+            sel_storeys = st.multiselect(
+                "Select IFC Building Storeys",
+                options=ifc_storeys_all,
+                default=default_storeys,
+                key="ifc_storeys"
+            )
+            # Persist selection
+            with open(sel_storeys_path, "wb") as f:
+                pickle.dump(sel_storeys, f)
+
+            # Load or extract all IFC classes
             if os.path.exists(ifc_classes_path):
                 with open(ifc_classes_path, "rb") as f:
                     ifc_classes_all = pickle.load(f)
             else:
-                from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import extract_classes
                 ifc_classes_all = extract_classes(ifc_path)
                 with open(ifc_classes_path, "wb") as f:
                     pickle.dump(ifc_classes_all, f)
 
-            # Load previously selected class or default to first
+            # Load previously selected class or default to "IfcSlab"
             if os.path.exists(ifc_sel_class_path):
                 with open(ifc_sel_class_path, "rb") as f:
                     default_ifc_class = pickle.load(f)
             else:
-                default_ifc_class = "IfcSlab" if ifc_classes_all else ""
+                default_ifc_class = "IfcSlab"
+            if default_ifc_class not in ifc_classes_all and ifc_classes_all:
+                default_ifc_class = ifc_classes_all[0]
 
-            # Class selection
+            # Class selection widget
             ifc_class = st.selectbox(
                 "Select IFC class",
                 options=ifc_classes_all,
-                index=ifc_classes_all.index(default_ifc_class) if default_ifc_class in ifc_classes_all else 0,
+                index=ifc_classes_all.index(default_ifc_class),
                 key="ifc_type"
             )
-
-            # Save selected class
+            # Persist selection
             with open(ifc_sel_class_path, "wb") as f:
                 pickle.dump(ifc_class, f)
 
-            # Load existing footprint or create new one
-            with st.spinner("Rendering IFC footprint…"):
-                if os.path.exists(ifc_footprint_path) and ifc_class == default_ifc_class:
-                    with open(ifc_footprint_path, "rb") as f:
-                        mp_ifc = pickle.load(f)
-                else:
-                    mp_ifc = cached_ifc(ifc_path, ifc_class)
-                    with open(ifc_footprint_path, "wb") as f:
-                        pickle.dump(mp_ifc, f)
-                st.session_state.ifc_footprint = mp_ifc
+            # Empty plot placeholder if nothing selected
+            if not sel_storeys:
+                st.info("Please select at least one storey above to render the IFC footprint.")
+                fig2, ax2 = plt.subplots(figsize=(4, 4))
+                ax2.set_aspect("equal", "box")
+                st.pyplot(fig2)
+            else:
+                # Load cached footprint or create new one
+                with st.spinner("Rendering IFC footprint…"):
+                    cache_valid = (
+                        os.path.exists(ifc_footprint_path)
+                        and sel_storeys == default_storeys
+                        and ifc_class == default_ifc_class
+                    )
+                    if cache_valid:
+                        with open(ifc_footprint_path, "rb") as f:
+                            mp_ifc = pickle.load(f)
+                    else:
+                        mp_ifc = create_IFC_footprint_polygon(
+                            ifc_path, ifc_class, building_storeys=sel_storeys
+                        )
+                        with open(ifc_footprint_path, "wb") as f:
+                            pickle.dump(mp_ifc, f)
+                    st.session_state.ifc_footprint = mp_ifc
 
-            fig2, ax2 = plt.subplots(figsize=(4, 4))
-            for poly in mp_ifc.geoms:
-                x, y = poly.exterior.xy
-                ax2.plot(x, y, color="green", linewidth=2)
-            ax2.set_aspect("equal", "box")
-            ax2.set_title(f"IFC Footprint ({ifc_class})")
-            st.pyplot(fig2)
+                # Display IFC footprint
+                fig2, ax2 = plt.subplots(figsize=(4, 4))
+                for poly in mp_ifc.geoms:
+                    x, y = poly.exterior.xy
+                    ax2.plot(x, y, color="green", linewidth=2)
+                ax2.set_aspect("equal", "box")
+                ax2.set_title(f"IFC Footprint ({ifc_class})")
+                st.pyplot(fig2)
 
     # --- DXF column ---
     with col_dxf:
@@ -407,12 +453,20 @@ elif page == "Rigid Registration Estimation":
             if features_ifc_filtered is None or features_citygml_filtered is None:
                 st.error("Please extract and filter features on the previous page first.")
             else:
-                from source.transformation_horizontal.estimate_rigid_transformation import estimate_rigid_transformation
+                # 1) estimate
                 rigid_transformation_ifc, inlier_pairs_ifc = estimate_rigid_transformation(
                     features_ifc_filtered, features_citygml_filtered,
                     distance_tol=distance_tol_ifc, angle_tol_deg=angle_tol_ifc
                 )
-                st.session_state.rigid_transformation_ifc = rigid_transformation_ifc
+
+                # 2) refine
+                refined_ifc = refine_rigid_transformation(inlier_pairs_ifc)
+                if refined_ifc is not None:
+                    st.session_state.rigid_transformation_ifc = refined_ifc
+                    st.success(f"Refined IFC → CityGML: θ={refined_ifc.theta:.3f}, t={refined_ifc.t}")
+                else:
+                    st.session_state.rigid_transformation_ifc = rigid_transformation_ifc
+                    st.warning("Refinement failed, using initial estimate.")
 
         # Only plot IFC→CityGML in this column
         if "rigid_transformation_ifc" in st.session_state and st.session_state.rigid_transformation_ifc is not None:
@@ -446,12 +500,20 @@ elif page == "Rigid Registration Estimation":
             if features_dxf_filtered is None or features_citygml_filtered is None:
                 st.error("Please extract and filter features on the previous page first.")
             else:
-                from source.transformation_horizontal.estimate_rigid_transformation import estimate_rigid_transformation
+                # 1) estimate
                 rigid_transformation_dxf, inlier_pairs_dxf = estimate_rigid_transformation(
                     features_dxf_filtered, features_citygml_filtered,
                     distance_tol=distance_tol_dxf, angle_tol_deg=angle_tol_dxf
                 )
-                st.session_state.rigid_transformation_dxf = rigid_transformation_dxf
+
+                # 2) refine
+                refined_dxf = refine_rigid_transformation(inlier_pairs_dxf)
+                if refined_ifc is not None:
+                    st.session_state.rigid_transformation_dxf = refined_dxf
+                    st.success(f"Refined DXF → CityGML: θ={refined_dxf.theta:.3f}, t={refined_dxf.t}")
+                else:
+                    st.session_state.rigid_transformation_dxf = rigid_transformation_dxf
+                    st.warning("Refinement failed, using initial estimate.")
 
         # Only plot DXF→CityGML in this column
         if "rigid_transformation_dxf" in st.session_state and st.session_state.rigid_transformation_dxf is not None:
