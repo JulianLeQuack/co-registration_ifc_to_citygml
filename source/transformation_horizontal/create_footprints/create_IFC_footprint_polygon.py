@@ -6,7 +6,7 @@ from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
 import matplotlib.pyplot as plt
 
-def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab"):
+def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab", building_storeys=[]):
     """
     Reads an IFC file and extracts geometry for elements of type `ifc_type`,
     then computes and returns a footprint as a MultiPolygon that contains all
@@ -15,13 +15,34 @@ def create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab"):
     Parameters:
         ifc_path (str): Path to the IFC file.
         ifc_type (str): IFC element type to process (default "IfcSlab").
+        building_storeys (list): List of building storey names to filter by.
     
     Returns:
         MultiPolygon: The union of all valid polygon geometries.
     """
     ifc_file = ifcopenshell.open(ifc_path)
+
+    # 1) find the storeys we care about
+    target_storey_ids = {
+        s.GlobalId
+        for s in ifc_file.by_type("IfcBuildingStorey")
+        if s.Name in building_storeys
+    }
+
+    # 2) collect elements of type ifc_type that are contained in any of those storeys
+    elements = []
+    if target_storey_ids:
+        for rel in ifc_file.by_type("IfcRelContainedInSpatialStructure"):
+            if rel.RelatingStructure.GlobalId in target_storey_ids:
+                elements.extend(
+                    e for e in rel.RelatedElements
+                    if e.is_a(ifc_type)
+                )
+    else:
+        # fallback to everything if no storeys requested
+        elements = ifc_file.by_type(ifc_type)
+
     settings = ifcopenshell.geom.settings()
-    elements = ifc_file.by_type(ifc_type)
     polygons = []
 
     # Extract geometry for each element
@@ -99,17 +120,35 @@ def extract_classes(ifc_path):
         classes.add(entity.is_a())
     return list(classes)
 
+def extract_building_storeys(ifc_path):
+    """
+    Extracts and prints the building storeys from the IFC file.
+    
+    Parameters:
+        ifc_path (str): Path to the IFC file.
+    
+    Returns:
+        list: List of unique building storeys found in the IFC file.
+    """
+    ifc_file = ifcopenshell.open(ifc_path)
+    storeys = set()
+    for entity in ifc_file.by_type("IfcBuildingStorey"):
+        storeys.add(entity.Name)
+    return list(storeys)
+
 def main():
     # Choose your IFC file path:
-    ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
+    #ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
     #ifc_path = "./test_data/ifc/3.003 01-05-0507_EG.ifc"
+    ifc_path = "./test_data/ifc/3D_01_05_0501.ifc"
 
-    footprint = create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab")
+    footprint = create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab", building_storeys=["1.OG"])
     if footprint is None:
         print("Failed to create IFC footprint polygon.")
         return
     
     print(extract_classes(ifc_path))  # Print all classes in the IFC file
+    print(extract_building_storeys(ifc_path))  # Print all building storeys in the IFC file
 
     # Plot the footprint MultiPolygon
     plt.figure(figsize=(8, 8))
