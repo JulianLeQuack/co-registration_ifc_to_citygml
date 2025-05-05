@@ -29,15 +29,15 @@ if __name__ == "__main__":
     dxf_footprint = create_DXF_footprint_polygon(dxf_path=input_path, layer_name=layer_name)
     dxf_features = detect_features(footprint=dxf_footprint, angle_threshold_deg=30)
     dxf_features_filtered = filter_features_by_feature_triangle_area(features=dxf_features, min_area=5)
-    dxf_features_filtered_sym = filter_features_by_feature_triangle_area(features=dxf_features, min_area=10)
+    dxf_features_filtered_sym = filter_features_by_feature_triangle_area(features=dxf_features, min_area=15)
 
-    plt.figure(figsize=(10,10))
+    plt.figure(figsize=(10,4))
     plt.plot(dxf_features_filtered[:, 2], dxf_features_filtered[:, 3], 
                 color="blue", 
-                label=f"Point-symmetric: {check_point_symmetry(dxf_features_filtered)}")
+                label=f"Point-symmetric: {check_point_symmetry(dxf_features_filtered, tolerance=5)}")
     plt.plot(dxf_features_filtered_sym[:, 2], dxf_features_filtered_sym[:, 3], 
                 color="red", 
-                label=f"Point-symmetric: {check_point_symmetry(dxf_features_filtered_sym)}")
+                label=f"Point-symmetric: {check_point_symmetry(dxf_features_filtered_sym, tolerance=5)}")
     plt.grid(True)
     plt.legend()
     plt.show()
