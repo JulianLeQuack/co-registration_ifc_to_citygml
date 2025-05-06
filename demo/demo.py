@@ -91,4 +91,4 @@ transformed_elevation_labels_dxf = refined_transformation_dxf_to_ifc.transform_e
 
 # Apply the transformations to the DXF and IFC files
 print("Applying Transformations to DXF and IFC files...")
-transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed.ifc", z=516.45) #516.45 for B1. 517.25 for B7
+transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed.ifc", z=0) #516.45 for B1. 517.25 for B7
