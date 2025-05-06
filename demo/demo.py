@@ -10,25 +10,36 @@ from source.transformation_horizontal.detect_features import detect_features, fi
 
 # Vertical Registration Imports
 from source.transformation_vertical.extract_elevation_labels import extract_elevation_labels
+from source.transformation_vertical.create_sideviews.create_CityGML_sideview import create_CityGML_sideview
+from source.transformation_vertical.create_sideviews.create_IFC_sideview import create_IFC_sideview
 
 
 # Input Data Paths
 # ifc_path = "./demo/data/3.002 01-05-0501_EG.ifc"
-ifc_path = "./test_data/ifc/3D_01_05_0507.ifc"
+
 dxf_path = "./demo/data/01-05-0501_EG.dxf"
 dxf_path_point_symmetric = "./demo/data/01-05-0507_EG.1.dxf"
 citygml_path = "./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml"
 data_path = "./demo/data/"
 
+ifc_path = "./test_data/ifc/3D_01_05_0501.ifc"
+citygml_building_ids = ["DEBY_LOD2_4959457"]
+
+# ifc_path = "./test_data/ifc/3D_01_05_0502.ifc"
+
+
+# ifc_path = "./test_data/ifc/3D_01_05_0507.ifc"
+# citygml_building_ids = ['DEBY_LOD2_4959793', 'DEBY_LOD2_4959323', 'DEBY_LOD2_4959321', 'DEBY_LOD2_4959324', 'DEBY_LOD2_4959459', 'DEBY_LOD2_4959322', 'DEBY_LOD2_4959458']
+
 # Model footprint settings
-# citygml_building_ids = ["DEBY_LOD2_4959457"]
-citygml_building_ids = ['DEBY_LOD2_4959793', 'DEBY_LOD2_4959323', 'DEBY_LOD2_4959321', 'DEBY_LOD2_4959324', 'DEBY_LOD2_4959459', 'DEBY_LOD2_4959322', 'DEBY_LOD2_4959458']
+
+building_storeys = ["100"]  # List of building storeys to be used for the IFC footprint
 ifc_type = "IfcSlab"
 dxf_layer = "A_09_TRAGDECKE"
 
 # Create Footprints
 print("Creating Footprints...")
-ifc_footprint = create_IFC_footprint_polygon(ifc_path=ifc_path, ifc_type=ifc_type, building_storeys=["1.OG", "EG.1", "EG.2", "EG.3"])
+ifc_footprint = create_IFC_footprint_polygon(ifc_path=ifc_path, ifc_type=ifc_type, building_storeys=building_storeys)
 dxf_footprint = create_DXF_footprint_polygon(dxf_path=dxf_path, layer_name=dxf_layer)
 citygml_footprint = create_CityGML_footprint(citygml_path=citygml_path, building_ids=citygml_building_ids)
 
@@ -80,4 +91,4 @@ transformed_elevation_labels_dxf = refined_transformation_dxf_to_ifc.transform_e
 
 # Apply the transformations to the DXF and IFC files
 print("Applying Transformations to DXF and IFC files...")
-transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed.ifc", z=515.83-5.35)
+transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed.ifc", z=516.45) #516.45 for B1. 517.25 for B7
