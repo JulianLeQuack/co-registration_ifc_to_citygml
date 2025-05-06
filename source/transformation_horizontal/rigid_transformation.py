@@ -1,6 +1,6 @@
 import numpy as np
 import json
-from shapely.geometry import Polygon, MultiPolygon
+from shapely.geometry import Point
 from shapely.affinity import translate, rotate
 import ifcopenshell
 import ifcpatch
@@ -36,6 +36,38 @@ class Rigid_Transformation:
         # Then translate
         output = translate(output, xoff=self.t[0], yoff=self.t[1])
         return output
+    
+    def transform_features(self, features: np.array):
+        """
+        Applies a 2D rigid transformation to a set of features.
+        Each feature is expected to be in format:
+        [polygon_index, vertex_index, x_coordinate, y_coordinate, turning_angle]
+        
+        Only the x,y coordinates (indices 2,3) are transformed.
+        """
+        transformed_features = features.copy()
+        
+        # Extract just the x,y coordinates
+        coords = features[:, 2:4]
+        
+        # Apply rotation
+        cos_theta = np.cos(self.theta)
+        sin_theta = np.sin(self.theta)
+        
+        # Rotate coords around origin (0,0)
+        x_rotated = coords[:, 0] * cos_theta - coords[:, 1] * sin_theta
+        y_rotated = coords[:, 0] * sin_theta + coords[:, 1] * cos_theta
+        
+        # Apply translation
+        transformed_coords = np.column_stack([
+            x_rotated + self.t[0],
+            y_rotated + self.t[1]
+        ])
+        
+        # Update just the coordinate columns
+        transformed_features[:, 2:4] = transformed_coords
+        
+        return transformed_features
 
     # def transform_points(self, points):
     #     """
