@@ -28,7 +28,7 @@ dxf_layer = "A_09_TRAGDECKE"
 
 # Create Footprints
 print("Creating Footprints...")
-ifc_footprint = create_IFC_footprint_polygon(ifc_path=ifc_path, ifc_type=ifc_type, building_storeys=["EG"])
+ifc_footprint = create_IFC_footprint_polygon(ifc_path=ifc_path, ifc_type=ifc_type, building_storeys=["1.OG", "EG.1", "EG.2", "EG.3"])
 dxf_footprint = create_DXF_footprint_polygon(dxf_path=dxf_path, layer_name=dxf_layer)
 citygml_footprint = create_CityGML_footprint(citygml_path=citygml_path, building_ids=citygml_building_ids)
 
@@ -80,4 +80,4 @@ transformed_elevation_labels_dxf = refined_transformation_dxf_to_ifc.transform_e
 
 # Apply the transformations to the DXF and IFC files
 print("Applying Transformations to DXF and IFC files...")
-transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=data_path + "transformed_ifc.ifc", z=515.83-5.35)
+transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed.ifc", z=515.83-5.35)
