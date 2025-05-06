@@ -508,7 +508,7 @@ elif page == "Rigid Registration Estimation":
 
                 # 2) refine
                 refined_dxf = refine_rigid_transformation(inlier_pairs_dxf)
-                if refined_ifc is not None:
+                if refined_dxf is not None:
                     st.session_state.rigid_transformation_dxf = refined_dxf
                     st.success(f"Refined DXF → CityGML: θ={refined_dxf.theta:.3f}, t={refined_dxf.t}")
                 else:
