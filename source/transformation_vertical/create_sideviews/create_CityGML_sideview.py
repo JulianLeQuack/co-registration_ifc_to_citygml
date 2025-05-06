@@ -19,16 +19,13 @@ def create_CityGML_sideview(citygml_path, building_ids: list) -> MultiPolygon:
                 if building is None:
                     print(f"Warning: No building found with gml:id '{b_id}'.")
                     continue
-                elements = building.findall(".//bldg:WallSurface", ns)
-                if not elements:
-                    print(f"Warning: No BuildingPart found in building '{b_id}'.")
-                for element in elements:
-                    poslist = element.find('.//gml:posList', ns)
-                    if poslist is None:
-                        print("Warning: A BuildingPart element without a posList was found; skipping it.")
-                        continue
+                # include all surfaces: grab every posList under this Building
+                poslists = building.findall('.//gml:posList', ns)
+                if not poslists:
+                    print(f"Warning: No geometry found in building '{b_id}'.")
+                for poslist in poslists:
                     coords = list(map(float, poslist.text.split()))
-                    # side‐view: take Y,Z
+                    # side-view: take Y,Z
                     points = [(coords[i + 1], coords[i + 2]) for i in range(0, len(coords), 3)]
                     if len(points) >= 3:
                         poly = Polygon(points)
@@ -39,23 +36,24 @@ def create_CityGML_sideview(citygml_path, building_ids: list) -> MultiPolygon:
                     else:
                         print("Warning: Not enough points to form a polygon; skipping.")
         else:
-            elements = root.findall('.//bldg:BuildingPart', ns)
-            for element in elements:
-                poslist = element.find('.//gml:posList', ns)
-                if poslist is None:
-                    print("Warning: A BuildingPart element without a posList was found; skipping it.")
-                    continue
-                coords = list(map(float, poslist.text.split()))
-                # side‐view: take Y,Z
-                points = [(coords[i + 1], coords[i + 2]) for i in range(0, len(coords), 3)]
-                if len(points) >= 3:
-                    poly = Polygon(points)
-                    if poly.is_valid:
-                        polygons.append(poly)
+            # no IDs: process every Building in the file
+            for building in root.findall('.//bldg:Building', ns):
+                bid = building.get('{http://www.opengis.net/gml}id', 'unknown')
+                poslists = building.findall('.//gml:posList', ns)
+                if not poslists:
+                    print(f"Warning: No geometry found in building '{bid}'.")
+                for poslist in poslists:
+                    coords = list(map(float, poslist.text.split()))
+                    # side-view: take Y,Z
+                    points = [(coords[i + 1], coords[i + 2]) for i in range(0, len(coords), 3)]
+                    if len(points) >= 3:
+                        poly = Polygon(points)
+                        if poly.is_valid:
+                            polygons.append(poly)
+                        else:
+                            print("Warning: An invalid polygon was created; skipping it.")
                     else:
-                        print("Warning: An invalid polygon was created; skipping it.")
-                else:
-                    print("Warning: Not enough points to form a polygon; skipping.")
+                        print("Warning: Not enough points to form a polygon; skipping.")
         
         # union all wall polygons into disjoint MultiPolygon
         if not polygons:
