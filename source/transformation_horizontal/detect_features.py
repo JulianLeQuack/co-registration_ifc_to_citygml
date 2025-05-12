@@ -70,6 +70,53 @@ def filter_features_by_edge_length(features: np.array, footprint, min_edge_len=2
             filtered_features.append(feature)
     return np.array(filtered_features).reshape(-1, 5) if filtered_features else np.empty((0, 5))
 
+def filter_features_by_feature_edge_length(features: np.array, min_edge_len=2.0) -> np.array:
+    """
+    Filters detected features based on the lengths of the edges formed by the detected features.
+    This function uses only the features (the detected corners), not all original polygon vertices.
+    
+    Args:
+        features: Array of detected features, each in the form 
+                  [polygon_index, vertex_index, x_coordinate, y_coordinate, turning_angle_deg]
+        min_edge_len: Minimum edge length threshold. Only features whose spanned edge length
+                      (with its adjacent features in the sorted order) is at least min_edge_len are retained.
+    
+    Returns:
+        A numpy array of filtered features (in the same 5-column format) or an empty array if none pass.
+    """
+    if features.size == 0:
+        return np.empty((0, 5))
+    
+    # Group features by polygon.
+    grouped_features = group_features_by_polygon(features)
+    filtered_features = []
+    
+    # For each feature, compute the edge length using its adjacent features in the grouped order.
+    for feature in features:
+        poly_idx = int(feature[0])
+        group = grouped_features.get(poly_idx, [])
+        n = len(group)
+        f_idx = None
+        for i, f in enumerate(group):
+            if int(f[1]) == int(feature[1]):
+                f_idx = i
+                break
+        if f_idx is None or n < 3:
+            continue
+        prev_f = group[(f_idx - 1) % n]
+        next_f = group[(f_idx + 1) % n]
+        p = np.array([prev_f[2], prev_f[3]])
+        c = np.array([feature[2], feature[3]])
+        npnt = np.array([next_f[2], next_f[3]])
+        
+        edge_in = np.linalg.norm(c - p)
+        edge_out = np.linalg.norm(npnt - c)
+        
+        if edge_in >= min_edge_len or edge_out >= min_edge_len:
+            filtered_features.append(feature)
+    
+    return np.array(filtered_features).reshape(-1, 5) if filtered_features else np.empty((0, 5))
+
 
 def filter_features_by_triangle_area(features: np.array, footprint, min_area=15) -> np.array:
     """
@@ -206,8 +253,11 @@ def plot_features(ax, footprint, detected_features, filtered_features, title, gr
 
 if __name__ == "__main__":
     # Load footprints.
-    ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
-    footprint_ifc = create_IFC_footprint_polygon(ifc_path, ifc_type="IfcSlab")
+    # ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
+    ifc_path = "./test_data/ifc/3D_01_05_0507.ifc"
+    ifc_building_storeys = ["100"]
+    ifc_type = "IfcWall"
+    footprint_ifc = create_IFC_footprint_polygon(ifc_path=ifc_path, ifc_type=ifc_type, building_storeys=ifc_building_storeys)
 
     dxf_path = "./test_data/dxf/01-05-0507_EG.1.dxf"
     footprint_dxf = create_DXF_footprint_polygon(
@@ -268,33 +318,33 @@ if __name__ == "__main__":
     plt.show()
 
 
-# fig, (ax1, ax2) = plt.subplots(2,1, figsize=(18, 9))
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(18, 12))
 
-# # Left: All detected corners
-# for poly in footprint_ifc.geoms:
-#     x, y = poly.exterior.xy
-#     ax1.plot(x, y, color='blue', alpha=0.5)
-# if features_ifc.size:
-#     ax1.scatter(features_ifc[:, 2], features_ifc[:, 3], color='red', s=80, label=f'All Detected: {len(features_ifc)}')
-#     # Place label in the middle of the plot
-#     mid_x = (ax1.get_xlim()[0] + ax1.get_xlim()[1]) / 2
-#     mid_y = (ax1.get_ylim()[0] + ax1.get_ylim()[1]) / 2
-#     ax1.text(mid_x, mid_y, f'All Detected: {len(features_ifc)}', fontsize=22, color='black', ha='center', va='center', weight='bold', alpha=1)
-# ax1.set_title("IFC Footprint - All Detected Corners")
-# ax1.set_aspect("equal", "box")
+    # Left: All detected corners
+    for poly in footprint_ifc.geoms:
+        x, y = poly.exterior.xy
+        ax1.plot(x, y, color='blue', alpha=0.5)
+    if features_ifc.size:
+        ax1.scatter(features_ifc[:, 2], features_ifc[:, 3], color='red', s=80, label=f'All Detected: {len(features_ifc)}')
+        # Place label in the middle of the plot
+        mid_x = (ax1.get_xlim()[0] + ax1.get_xlim()[1]) / 2
+        mid_y = (ax1.get_ylim()[0] + ax1.get_ylim()[1]) / 2
+        ax1.text(mid_x, mid_y, f'All Detected: {len(features_ifc)}', fontsize=14, color='black', ha='center', va='center', alpha=1)
+    #ax1.set_title("IFC Footprint - All Detected Corners")
+    ax1.set_aspect("equal", "box")
 
-# # Right: Filtered corners by feature triangle area
-# for poly in footprint_ifc.geoms:
-#     x, y = poly.exterior.xy
-#     ax2.plot(x, y, color='blue', alpha=0.5)
-# if filtered_features_ifc_feature_area.size:
-#     ax2.scatter(filtered_features_ifc_feature_area[:, 2], filtered_features_ifc_feature_area[:, 3], color='red', s=80, label=f'After Filtering: {len(filtered_features_ifc_feature_area)}')
-#     # Place label in the middle of the plot
-#     mid_x = (ax2.get_xlim()[0] + ax2.get_xlim()[1]) / 2
-#     mid_y = (ax2.get_ylim()[0] + ax2.get_ylim()[1]) / 2
-#     ax2.text(mid_x, mid_y, f'After Filtering: {len(filtered_features_ifc_feature_area)}', fontsize=22, color='black', ha='center', va='center', weight='bold', alpha=1)
-# ax2.set_title("IFC Footprint - Filtered Corners (Feature Triangle Area)")
-# ax2.set_aspect("equal", "box")
+    # Right: Filtered corners by feature triangle area
+    for poly in footprint_ifc.geoms:
+        x, y = poly.exterior.xy
+        ax2.plot(x, y, color='blue', alpha=0.5)
+    if filtered_features_ifc_feature_area.size:
+        ax2.scatter(filtered_features_ifc_feature_area[:, 2], filtered_features_ifc_feature_area[:, 3], color='red', s=80, label=f'After Filtering: {len(filtered_features_ifc_feature_area)}')
+        # Place label in the middle of the plot
+        mid_x = (ax2.get_xlim()[0] + ax2.get_xlim()[1]) / 2
+        mid_y = (ax2.get_ylim()[0] + ax2.get_ylim()[1]) / 2
+        ax2.text(mid_x, mid_y, f'After Filtering: {len(filtered_features_ifc_feature_area)}', fontsize=14, color='black', ha='center', va='center', alpha=1)
+    #ax2.set_title("IFC Footprint - Filtered Corners (Feature Triangle Area)")
+    ax2.set_aspect("equal", "box")
 
-# plt.tight_layout()
-# plt.show()
+    plt.tight_layout()
+    plt.show()
