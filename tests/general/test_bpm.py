@@ -12,8 +12,8 @@ import numpy as np
 citygml_path = "./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml"
 citygml_building_ids = ["DEBY_LOD2_4959457"]
 
-ifc_path = "./test_data/ifc/bpm_b1_entrance_hall.ifc"
-output_ifc_path = "./test_data/ifc/bpm_b1_entrance_hall_transformed.ifc"
+ifc_path = "./test_data/ifc/bpm/bpm_b1_entrance_hall.ifc"
+output_ifc_path = "./test_data/ifc/bpm/bpm_b1_entrance_hall_transformed.ifc"
 ifc_building_storeys = extract_building_storeys(ifc_path)[0] # bpm only has one storey
 ifc_class = "IfcWall" # slabs not included in model
 b1_reference_elevation = 516.45
