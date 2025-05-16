@@ -19,11 +19,22 @@ def create_CityGML_footprint(citygml_path, building_ids: list) -> MultiPolygon:
         tree = ET.parse(citygml_path)
         root = tree.getroot()
 
-        # Define namespaces
-        ns = {
+        # Define namespaces for 2.0 and 1.0
+        ns_2_0 = {
             'bldg': 'http://www.opengis.net/citygml/building/2.0',
             'gml': 'http://www.opengis.net/gml'
         }
+        ns_1_0 = {
+            'bldg': 'http://www.opengis.net/citygml/building/1.0',
+            'gml': 'http://www.opengis.net/gml'
+        }
+
+        # Try to detect which namespace is present
+        buildings = root.findall('.//bldg:Building', ns_2_0)
+        ns = ns_2_0
+        if not buildings:
+            buildings = root.findall('.//bldg:Building', ns_1_0)
+            ns = ns_1_0
 
         polygons = []
         if building_ids:
@@ -88,10 +99,9 @@ def create_CityGML_footprint(citygml_path, building_ids: list) -> MultiPolygon:
     except Exception as e:
         print(f"An error occurred: {e}")
         return MultiPolygon([])
-    
 
 def extract_building_ids(citygml_path: str) -> list:
-    """
+    """_
     Extracts building IDs from a CityGML file.
     :param citygml_path: Path to the CityGML file
     :return: List of building IDs (no None entries)
@@ -125,11 +135,15 @@ def extract_building_ids(citygml_path: str) -> list:
 if __name__ == "__main__":
     # Use a test file and optionally a list of building IDs 
     # For example, supply a list of building IDs: ['B1', 'B2']
+    citygml_path = "./test_data/citygml/690_5336.gml"
+    # building_ids = ["DEBY_LOD2_108580336"]
+    building_ids = []
+
     print("Extracting building IDs from CityGML...")
-    building_ids = extract_building_ids("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml")
+    # building_ids = extract_building_ids("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml")
     print(f"Building IDs: {building_ids}")
-    footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml", ['DEBY_LOD2_4959793', 'DEBY_LOD2_4959323', 'DEBY_LOD2_4959321', 'DEBY_LOD2_4959324', 'DEBY_LOD2_4959459', 'DEBY_LOD2_4959322', 'DEBY_LOD2_4959458'])
-    # footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml", ["DEBY_LOD2_4959457"])
+    # footprint = create_CityGML_footprint("./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml", ['DEBY_LOD2_4959793', 'DEBY_LOD2_4959323', 'DEBY_LOD2_4959321', 'DEBY_LOD2_4959324', 'DEBY_LOD2_4959459', 'DEBY_LOD2_4959322', 'DEBY_LOD2_4959458'])
+    footprint = create_CityGML_footprint(citygml_path=citygml_path, building_ids=building_ids)
     print(f"Output Type: {type(footprint)}")
     plt.figure(figsize=(10,10))
     if not footprint.is_empty:
