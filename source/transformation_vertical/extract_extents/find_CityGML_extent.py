@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 from shapely.geometry import Polygon
 
-def find_citygml_z_extent(citygml_path, building_ids=None):
+def find_CityGML_extent(citygml_path, building_ids=None):
     try:
         tree = ET.parse(citygml_path)
         root = tree.getroot()
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # building_ids = ["DEBY_LOD2_4959457"]  # Optional: Specify building IDs or set to None
     citygml_path = "./test_data/citygml/690_5336.gml"
     building_ids = ["DEBY_LOD2_108580336"]  # Optional: Specify building IDs or set to None
-    min_z, max_z = find_citygml_z_extent(citygml_path, building_ids)
+    min_z, max_z = find_CityGML_extent(citygml_path, building_ids)
     if min_z is not None and max_z is not None:
         print(f"Z-Extent of the CityGML model: Min Z = {min_z}, Max Z = {max_z}")
     else:
