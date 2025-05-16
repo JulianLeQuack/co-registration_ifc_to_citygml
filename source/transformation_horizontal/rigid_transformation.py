@@ -67,56 +67,18 @@ class Rigid_Transformation:
         # Update just the coordinate columns
         transformed_features[:, 2:4] = transformed_coords
         
-        return transformed_features
+        return transformed_features        
 
-    # def transform_points(self, points):
-    #     """
-    #     Applies a 2D rigid transformation to a set of points.
-    #     """
-    #     points = np.asarray(points)
-    #     R = self.rotation_matrix()
-    #     t = self.translation_vector()
-    #     transformed_points = (R @ points.T).T + t
-    #     return transformed_points
-    
-    # def transform_shapely_polygon(self, polygon):
-    #     """
-    #     Apply a given transformation to a Shapely Polygon or MultiPolygon and return the transformed geometry.
-    #     """
-    #     if hasattr(polygon, "geom_type"):
-    #         if polygon.geom_type == "MultiPolygon":
-    #             transformed_polys = []
-    #             for poly in polygon.geoms:
-    #                 coords = np.array(poly.exterior.coords)
-    #                 transformed_coords = self.transform_points(coords)
-    #                 # Ensure closure.
-    #                 if not np.allclose(transformed_coords[0], transformed_coords[-1]):
-    #                     transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
-    #                 transformed_polys.append(Polygon(transformed_coords))
-    #             return MultiPolygon(transformed_polys)
-    #         elif polygon.geom_type == "Polygon":
-    #             coords = np.array(polygon.exterior.coords)
-    #             transformed_coords = self.transform_points(coords)
-    #             if not np.allclose(transformed_coords[0], transformed_coords[-1]):
-    #                 transformed_coords = np.vstack([transformed_coords, transformed_coords[0]])
-    #             return Polygon(transformed_coords)
-    #         else:
-    #             print("Unexpected geometry type.")
-    #             return None
-    #     else:
-    #         print("Input is not a Shapely geometry.")
-    #         return None
-        
-
-    def transform_ifc(self, input_ifc_path, output_ifc_path, z=0):
+    def transform_ifc(self, input_ifc_path, output_ifc_path):
         """
-        Apply the transformation to an IFC file and save the transformed model.
+        Apply the horizontal transformation to an IFC file and save the transformed model.
         """
         # Load the IFC model
         model = ifcopenshell.open(input_ifc_path)
         
         # Prepare arguments for ifcpatch
         x, y = self.t
+        z = 0
         theta_rad = self.theta
         az = np.degrees(theta_rad)
 
@@ -129,7 +91,26 @@ class Rigid_Transformation:
         })
         # Write out the transformed IFC model
         ifcpatch.write(patched, output_ifc_path)
-        print(f"Transformed IFC model saved to: {output_ifc_path}")
+
+    def offset_ifc(self, input_ifc_path, output_ifc_path, z=0):
+        """
+        Apply the vertical transformation to an IFC file and save the transformed model.
+        """
+        # Load the IFC model
+        model = ifcopenshell.open(input_ifc_path)
+        
+        # Prepare arguments for ifcpatch
+        x, y = 0 # No horizontal offset
+
+        # Execute the patch
+        patched = ifcpatch.execute({
+            "input": input_ifc_path,
+            "file": model,
+            "recipe": "OffsetObjectPlacements",
+            "arguments": [x, y, z, True, 0, 0, 0]
+        })
+        # Write out the transformed IFC model
+        ifcpatch.write(patched, output_ifc_path)
 
     
     def transform_elevation_labels(self, elevation_labels:np.array):
