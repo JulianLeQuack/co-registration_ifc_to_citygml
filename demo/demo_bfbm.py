@@ -1,7 +1,6 @@
 # Footprint Creation Imports
 from source.transformation_horizontal.create_footprints.create_CityGML_footprint import create_CityGML_footprint
 from source.transformation_horizontal.create_footprints.create_IFC_footprint_polygon import create_IFC_footprint_polygon
-from source.transformation_horizontal.create_footprints.create_DXF_footprint_polygon import create_DXF_footprint_polygon
 
 # Horizontal Registration Imports
 from source.transformation_horizontal.rigid_transformation import Rigid_Transformation
@@ -9,8 +8,9 @@ from source.transformation_horizontal.estimate_rigid_transformation import estim
 from source.transformation_horizontal.detect_features import detect_features, filter_features_by_feature_triangle_area
 
 # Vertical Registration Imports
-from source.transformation_vertical.extract_extents.find_CityGML_extent import find_CityGML_extents
-from source.transformation_vertical.extract_extents.find_IFC_extent import find_IFC_extents
+from source.transformation_vertical.extract_extents.find_CityGML_extent import find_CityGML_extent
+from source.transformation_vertical.extract_extents.find_IFC_extent import find_IFC_extent
+from source.transformation_vertical.estimate_vertical_offset import estimate_vertical_offset
 
 
 
@@ -50,22 +50,19 @@ rough_transformation_ifc_to_citygml, inlier_pairs_ifc_to_citygml = estimate_rigi
 refined_transformation_ifc_to_citygml = refine_rigid_transformation(inlier_pairs=inlier_pairs_ifc_to_citygml)
 print(f"Transformation for IFC to CityGML: {refined_transformation_ifc_to_citygml}")
 
-# Transformation of IFC footprint to CityGML footprint and Feature Extraction
-print("Transforming IFC Footprint to CityGML Footprint...")
-ifc_footprint_transformed = refined_transformation_ifc_to_citygml.transform(ifc_footprint)
-ifc_features_transformed = detect_features(footprint=ifc_footprint_transformed, angle_threshold_deg=30)
-ifc_features_transformed_filtered = filter_features_by_feature_triangle_area(features=ifc_features_transformed, min_area=15)
+# Export the IFC file after horizontal transformation
+transformed_ifc_path = ".".join(ifc_path.split(".")[:-1]) + "_transformed.ifc"
+print(f"Exporting transformed IFC file to: {transformed_ifc_path}")
+transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=transformed_ifc_path) #516.45 for B1. 517.25 for B7
+
+# Extract the extents of the CityGML and IFC files
+citygml_extent = find_CityGML_extent(citygml_path=citygml_path, building_ids=citygml_building_ids)
+ifc_extent = find_IFC_extent(ifc_path=transformed_ifc_path)
+
+vertical_offset = estimate_vertical_offset(citygml_extents=citygml_extent, ifc_extents=ifc_extent)
 
 
-
-## Vertical Registration
-
-# Extract elevation labels from DXF
-print("Extracting Elevation Labels from DXF...")
-elevation_labels_dxf = extract_elevation_labels(dxf_path=dxf_path, layer_name=dxf_layer)
-transformed_elevation_labels_dxf = refined_transformation_dxf_to_ifc.transform_elevation_labels(elevation_labels=elevation_labels_dxf)
-
-# Apply the transformations to the DXF and IFC files
-print("Applying Transformations to DXF and IFC files...")
-transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed_horizontal.ifc", z=0) #516.45 for B1. 517.25 for B7
-transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed_vertical.ifc", z=516.53) #516.45 for B1. 517.25 for B7
+# Export IFC file after vertical transformation
+refined_transformation_ifc_to_citygml.offset_ifc(input_ifc_path=transformed_ifc_path, output_ifc_path=transformed_ifc_path, z=vertical_offset)
+print(f"Vertical Offset: {vertical_offset}")
+print("Transformation completed successfully.")

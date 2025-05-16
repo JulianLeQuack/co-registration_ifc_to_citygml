@@ -100,7 +100,7 @@ class Rigid_Transformation:
         model = ifcopenshell.open(input_ifc_path)
         
         # Prepare arguments for ifcpatch
-        x, y = 0 # No horizontal offset
+        x, y = 0, 0 # No horizontal offset
 
         # Execute the patch
         patched = ifcpatch.execute({

@@ -24,7 +24,6 @@ def find_IFC_extent(ifc_path):
             try:
                 shape = ifcopenshell.geom.create_shape(settings, element)
             except Exception as e:
-                print(f"Skipping element due to error: {e}")
                 continue
             verts = ifcopenshell.util.shape.get_vertices(shape.geometry)
             matrix = ifcopenshell.util.shape.get_shape_matrix(shape)
@@ -54,4 +53,4 @@ if __name__ == "__main__":
     ifc_path = "./test_data/ifc/3D_01_05_0501.ifc"
     storey_extents = find_IFC_extent(ifc_path)
     for ext in storey_extents:
-        print(f"Storey '{ext['storey_name']}' (ID: {ext['storey_id']}): Min Z = {ext['min_z']}, Max Z = {ext['max_z']}")
+        print(ext)

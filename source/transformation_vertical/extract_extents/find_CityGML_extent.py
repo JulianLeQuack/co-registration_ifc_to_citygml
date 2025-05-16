@@ -56,7 +56,7 @@ def find_CityGML_extent(citygml_path, building_ids=None):
             print("No valid Z-coordinates found in the CityGML file.")
             return None, None
 
-        return round(min_z, 2), round(max_z, 2)
+        return {"min_z": round(min_z, 2), "max_z": round(max_z, 2)}
 
     except ET.ParseError as e:
         print(f"Error parsing CityGML file: {citygml_path}, Error: {e}")
