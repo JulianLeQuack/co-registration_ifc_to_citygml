@@ -32,10 +32,10 @@ def get_elevation(mosaic, transform, x, y, nodata):
 
 if __name__ == "__main__":
     tile_files = [
-        "./test_data/elevation/690_5335.tif",
-        "./test_data/elevation/690_5336.tif",
-        "./test_data/elevation/691_5335.tif",
-        "./test_data/elevation/691_5336.tif",
+        "./data/elevation/690_5335.tif",
+        "./data/elevation/690_5336.tif",
+        "./data/elevation/691_5335.tif",
+        "./data/elevation/691_5336.tif",
     ]
     mosaic, transform, meta, nodata = assemble_tiles(tile_files)
     x, y = 691011, 5336027
