@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from shapely.affinity import translate
 
 citygml_path = "./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml"
-ifc_path = "./test_data/ifc/3D_01_05_0501_transformed.ifc"
+ifc_path = "./test_data/ifc/3D_01_05_0501_transformed_horizontal.ifc"
 
 citygml_building_ids = ["DEBY_LOD2_4959457"]
 citygml_sideview = create_CityGML_sideview(citygml_path=citygml_path, building_ids=citygml_building_ids)
