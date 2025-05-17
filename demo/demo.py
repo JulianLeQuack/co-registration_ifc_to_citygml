@@ -15,14 +15,14 @@ from source.transformation_vertical.create_sideviews.create_IFC_sideview import 
 
 
 # Input Data Paths
-# ifc_path = "./demo/data/3.002 01-05-0501_EG.ifc"
+ifc_path = "./test_data/ifc/3.002 01-05-0501_EG.ifc"
 
 dxf_path = "./demo/data/01-05-0501_EG.dxf"
 dxf_path_point_symmetric = "./demo/data/01-05-0507_EG.1.dxf"
 citygml_path = "./test_data/citygml/TUM_LoD2_Full_withSurrounds.gml"
 data_path = "./demo/data/"
 
-ifc_path = "./test_data/ifc/3D_01_05_0501.ifc"
+# ifc_path = "./test_data/ifc/3D_01_05_0501.ifc"
 citygml_building_ids = ["DEBY_LOD2_4959457"]
 
 # ifc_path = "./test_data/ifc/3D_01_05_0502.ifc"
@@ -33,7 +33,7 @@ citygml_building_ids = ["DEBY_LOD2_4959457"]
 
 # Model footprint settings
 
-building_storeys = ["100"]  # List of building storeys to be used for the IFC footprint
+building_storeys = []  # List of building storeys to be used for the IFC footprint
 ifc_type = "IfcSlab"
 dxf_layer = "A_09_TRAGDECKE"
 
@@ -91,5 +91,5 @@ transformed_elevation_labels_dxf = refined_transformation_dxf_to_ifc.transform_e
 
 # Apply the transformations to the DXF and IFC files
 print("Applying Transformations to DXF and IFC files...")
-transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed_horizontal.ifc", z=0) #516.45 for B1. 517.25 for B7
-transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed_vertical.ifc", z=516.53) #516.45 for B1. 517.25 for B7
+transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed_horizontal.ifc") #516.45 for B1. 517.25 for B7
+# transformed_ifc_file = refined_transformation_ifc_to_citygml.transform_ifc(input_ifc_path=ifc_path, output_ifc_path=".".join(ifc_path.split(".")[:-1]) + "_transformed_vertical.ifc", z=516.53) #516.45 for B1. 517.25 for B7
