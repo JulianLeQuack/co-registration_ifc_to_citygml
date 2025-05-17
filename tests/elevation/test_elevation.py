@@ -1,5 +1,3 @@
-# dc7bcb7aa5d7e0e56670aa5b8da72d5c
-
 import rasterio
 from rasterio.merge import merge
 
